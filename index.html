@@ -1,0 +1,2224 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unique Rural Fund — ড্যাশবোর্ড</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla:ital@0;1&family=Hind+Siliguri:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- QR code generator — used so members can SCAN to pay instead of tapping a upi:// link.
+     GPay/PhonePe have started rejecting upi:// links opened from a mobile browser with
+     "declined for security reasons", but the same link scanned as a QR through the UPI
+     app's own camera works fine — scanning isn't a browser redirect. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --sidebar-bg:#15291F;
+    --sidebar-bg-2:#1C3428;
+    --sidebar-text:#A9C1AE;
+    --sidebar-text-dim:#6E8A76;
+    --active-bg:#C67C3E;
+    --content-bg:#F3EEE1;
+    --card-bg:#FFFFFF;
+    --ink:#1B2A20;
+    --ink-soft:#5B6B60;
+    --green:#2E6B4F;
+    --green-dark:#1E4A35;
+    --paid-bg:#DFEEDF;
+    --paid-text:#2E7A4E;
+    --unpaid-bg:#F6DBDB;
+    --unpaid-text:#B23B3B;
+    --overdue-border:#C74A3E;
+    --gold:#B8892B;
+    --line:#E4DCC8;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; display:flex; min-height:100vh; background:var(--content-bg);
+    color:var(--ink); font-family:'Hind Siliguri',sans-serif;
+  }
+  h1,h2,h3,.serif{font-family:'Tiro Bangla', serif;}
+  .mono{font-family:'IBM Plex Mono',monospace; font-variant-numeric: tabular-nums;}
+
+  .sidebar{
+    width:230px; flex-shrink:0; background:var(--sidebar-bg); color:var(--sidebar-text);
+    padding:1.6rem 1rem; position:sticky; top:0; height:100vh; overflow-y:auto;
+    display:flex; flex-direction:column;
+  }
+  .brand{padding:.2rem .6rem 1.6rem;}
+  .brand h1{color:#F1E8D5; font-size:1.4rem; font-weight:400; margin:0 0 .3rem; line-height:1.25;}
+  .brand p{margin:0; font-size:.72rem; color:var(--sidebar-text-dim); line-height:1.4;}
+  nav.navlist{display:flex; flex-direction:column; gap:.2rem;}
+  .navlist button{
+    all:unset; display:flex; align-items:center; gap:.6rem; padding:.65rem .8rem; border-radius:10px;
+    font-size:.92rem; font-weight:500; color:var(--sidebar-text); cursor:pointer; transition:background .15s, color .15s;
+  }
+  .navlist button .n{font-family:'IBM Plex Mono',monospace; font-size:.72rem; color:var(--sidebar-text-dim); min-width:1.4rem;}
+  .navlist button:hover{background:var(--sidebar-bg-2);}
+  .navlist button.active{background:var(--active-bg); color:#fff;}
+  .navlist button.active .n{color:rgba(255,255,255,.75);}
+
+  .edit-toggle{margin-top:auto; padding-top:1rem;}
+  .edit-btn{all:unset; display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%;
+    padding:.7rem .8rem; border-radius:10px; font-size:.85rem; font-weight:600; cursor:pointer;
+    background:var(--sidebar-bg-2); color:var(--sidebar-text); box-sizing:border-box; text-align:center;}
+  .edit-btn.unlocked{background:var(--active-bg); color:#fff;}
+
+  .main{flex:1; min-width:0; padding:1.6rem 2.2rem 3rem;}
+  .topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem; gap:1rem; flex-wrap:wrap;}
+  .page-title{font-size:1.7rem; font-weight:400; color:var(--green-dark); margin:0;}
+  .topbar-right{display:flex; align-items:center; gap:1rem; flex-wrap:wrap;}
+  .user-chip{display:flex; align-items:center; gap:.45rem; font-size:.82rem; font-weight:700;
+    color:var(--green-dark); background:#EDF6EA; border:1px solid #C9E0BF; border-radius:20px;
+    padding:.35rem .5rem .35rem .8rem; white-space:nowrap;}
+  .user-chip .uc-ico{font-size:.95rem;}
+  .user-chip .uc-out{all:unset; cursor:pointer; font-size:.72rem; font-weight:700; color:#fff;
+    background:var(--green-dark); border-radius:14px; padding:.2rem .6rem;}
+  .user-chip .uc-out:hover{opacity:.85;}
+  .refresh-btn{all:unset; display:flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
+    color:var(--green-dark); background:var(--card-bg); border:1px solid var(--line); border-radius:20px;
+    padding:.4rem .9rem; cursor:pointer; white-space:nowrap;}
+  .refresh-btn:hover{background:#F7F4EA;}
+  .refresh-btn .ic{display:inline-block; transition:transform .5s;}
+  .refresh-btn.spinning .ic{animation:spinIc .8s linear infinite;}
+  @keyframes spinIc{to{transform:rotate(360deg);}}
+  .saved-indicator{font-size:.82rem; color:var(--green); display:flex; align-items:center; gap:.4rem; transition:opacity .2s; white-space:nowrap;}
+  .saved-indicator .dot{width:7px; height:7px; border-radius:50%; background:var(--green); display:inline-block;}
+  .saved-indicator.err{color:var(--unpaid-text);}
+  .saved-indicator.err .dot{background:var(--unpaid-text);}
+
+  .card{background:var(--card-bg); border:1px solid var(--line); border-radius:14px; padding:1.4rem 1.5rem; margin-bottom:1.4rem; box-shadow:0 1px 2px rgba(27,42,32,.04);}
+  .card-head{display:flex; justify-content:space-between; align-items:flex-start; gap:1.5rem; margin-bottom:1.1rem; flex-wrap:wrap;}
+  .card-head h2{font-size:1.2rem; font-weight:600; color:var(--green-dark); margin:0;}
+  .card-head .hint{font-size:.8rem; color:var(--ink-soft); text-align:right; max-width:26rem;}
+
+  .stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-bottom:1.4rem;}
+  .stat{background:var(--card-bg); border:1px solid var(--line); border-radius:14px; padding:1rem 1.2rem;}
+  .stat .k{font-size:.8rem; color:var(--ink-soft); margin-bottom:.3rem;}
+  .stat .v{font-size:1.45rem; font-weight:600; color:var(--green-dark);}
+  .stat .v.gold{color:var(--gold);}
+
+  .table-scroll{overflow-x:auto; border-radius:10px; border:1px solid var(--line); max-height:70vh; overflow-y:auto;}
+  table{width:100%; border-collapse:collapse; font-size:.87rem;}
+  thead th{text-align:left; font-weight:600; color:var(--green-dark); background:#F7F4EA; padding:.6rem .7rem; white-space:nowrap; position:sticky; top:0; z-index:2; border-bottom:1px solid var(--line);}
+  thead th:first-child{position:sticky; left:0; z-index:3;}
+  tbody td{padding:.4rem .5rem; border-bottom:1px solid var(--line); white-space:nowrap;}
+  tbody tr:hover{background:#FBF9F2;}
+  tbody td:first-child{font-weight:500; padding-left:.9rem; position:sticky; left:0; z-index:1; background:var(--card-bg);}
+  tbody tr:hover td:first-child{background:#FBF9F2;}
+
+  .cell-pill{display:inline-block; min-width:56px; text-align:center; padding:.3rem .5rem; border-radius:8px; font-family:'IBM Plex Mono',monospace; font-size:.82rem; font-weight:600; user-select:none; transition:transform .08s;}
+  .cell-pill.editable{cursor:pointer;}
+  .cell-pill.editable:active{transform:scale(0.94);}
+  .cell-pill.paid{background:var(--paid-bg); color:var(--paid-text);}
+  .cell-pill.unpaid{background:var(--unpaid-bg); color:var(--unpaid-text);}
+
+  .search-row{margin-bottom:1rem; display:flex; gap:.6rem; flex-wrap:wrap; align-items:center;}
+  input[type=text],input[type=number],textarea{font-family:'Hind Siliguri',sans-serif; padding:.55rem .8rem; border:1px solid var(--line); background:#fff; border-radius:8px; font-size:.92rem;}
+  input[type=text]{flex:1; min-width:200px;}
+  .pill-badge{display:inline-block; padding:.2rem .6rem; border-radius:20px; font-size:.75rem; font-weight:600; background:var(--paid-bg); color:var(--paid-text);}
+  .pill-badge.red{background:var(--unpaid-bg); color:var(--unpaid-text);}
+  .pill-badge.grey{background:#EEE9DA; color:var(--ink-soft);}
+
+  .avatar-name{display:flex; align-items:center; gap:.6rem;}
+  .avatar-name img{width:30px; height:30px; border-radius:50%; flex-shrink:0; background:#EEE9DA; object-fit:cover;}
+  .id-photo{width:72px; height:90px; border-radius:6px; object-fit:cover; background:#EEE9DA; border:1px solid var(--line); box-shadow:0 1px 3px rgba(27,42,32,.15); display:block;}
+
+  .overdue-tag{font-size:.68rem; font-weight:700; background:var(--overdue-border); color:#fff; padding:.15rem .5rem; border-radius:10px;}
+  .loan-cell{display:flex; flex-direction:column; align-items:center; gap:.05rem; padding:.3rem .5rem; border-radius:8px; min-width:64px;}
+  .loan-cell .ld{font-size:.66rem; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
+  .loan-cell .la{font-family:'IBM Plex Mono',monospace; font-size:.82rem; font-weight:600;}
+  .loan-cell.paid{background:var(--paid-bg);}
+  .loan-cell.paid .la{color:var(--paid-text);}
+  .loan-cell.unpaid{background:var(--unpaid-bg);}
+  .loan-cell.unpaid .la{color:var(--unpaid-text);}
+  .loan-cell.editable{cursor:pointer;}
+  .loan-cell.editable:active{transform:scale(0.94);}
+  .loan-close-btn{all:unset; cursor:pointer; font-size:.72rem; font-weight:600; padding:.35rem .6rem; border-radius:7px; background:var(--overdue-border); color:#fff; white-space:nowrap;}
+  .loan-actions button.danger{background:var(--overdue-border);}
+
+  .bday-list{display:flex; flex-direction:column; gap:.5rem;}
+  .bday-row{background:var(--card-bg); border:1px solid var(--line); border-radius:12px; padding:.7rem 1rem; display:grid; grid-template-columns:64px 1fr auto; gap:.9rem; align-items:center; font-size:.88rem;}
+  .bday-row .datebox{background:var(--green-dark); color:#F1E8D5; text-align:center; padding:.35rem .3rem; border-radius:8px; font-family:'IBM Plex Mono',monospace; font-size:.76rem; line-height:1.2;}
+  .bday-row.next .datebox{background:var(--gold); color:#3a2a08;}
+  .bday-row .name{font-weight:600;}
+  .bday-row .contact{color:var(--ink-soft); font-size:.78rem;}
+  .bday-row .days{color:var(--green); font-size:.78rem; font-weight:600;}
+  .bday-edit-btn{all:unset; cursor:pointer; font-size:.7rem; font-weight:600; color:var(--gold);}
+
+  .rules-list{list-style:none; padding:0; margin:0; counter-reset:rule;}
+  .rules-list li{counter-increment:rule; padding:.7rem 0 .7rem 2.6rem; border-bottom:1px solid var(--line); position:relative; line-height:1.55;}
+  .rules-list li:last-child{border-bottom:none;}
+  .rules-list li::before{content:counter(rule); position:absolute; left:0; top:.6rem; width:1.8rem; height:1.8rem; background:var(--green-dark); color:#F1E8D5; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:.85rem;}
+  .rule-edit-btn{all:unset; cursor:pointer; font-size:.72rem; font-weight:600; color:var(--gold); margin-left:.6rem;}
+  .rule-editor{display:flex; gap:.5rem; margin-top:.5rem;}
+  .rule-editor textarea{flex:1; min-height:60px;}
+  .rule-editor button{all:unset; cursor:pointer; font-size:.78rem; font-weight:600; padding:.4rem .8rem; border-radius:7px; background:var(--green-dark); color:#F1E8D5; align-self:flex-start;}
+
+  .chart-box{margin-bottom:1.4rem;}
+  .chart-box .cap{font-size:.85rem; color:var(--ink-soft); margin-bottom:.5rem;}
+  svg text{font-family:'IBM Plex Mono',monospace; fill:var(--ink-soft);}
+  .two-col{display:grid; grid-template-columns:1fr 1fr; gap:1.4rem;}
+  @media (max-width:900px){.two-col{grid-template-columns:1fr;}}
+
+  .foot-help{font-size:.82rem; color:var(--ink-soft); line-height:1.7; background:var(--card-bg); border:1px dashed var(--line); border-radius:12px; padding:1.1rem 1.3rem;}
+  .foot-help h3{color:var(--green-dark); font-size:1rem; margin-top:0;}
+  .foot-help code{background:#F3EEE1; padding:.1rem .35rem; border-radius:4px; font-family:'IBM Plex Mono',monospace; font-size:.82rem;}
+
+  .website-link-btn{display:inline-flex; align-items:center; gap:.5rem; padding:.6rem 1.1rem; border-radius:9px; background:var(--green-dark); color:#F1E8D5; font-weight:600; font-size:.88rem; text-decoration:none;}
+  .website-link-btn:hover{background:var(--green);}
+
+  .loading-screen{position:fixed; inset:0; background:var(--content-bg); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:.8rem; z-index:500;}
+  .loading-screen .spin{width:28px; height:28px; border:3px solid var(--line); border-top-color:var(--green); border-radius:50%; animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-screen p{color:var(--ink-soft); font-size:.9rem;}
+  .loading-screen.hidden{display:none;}
+
+  .pin-overlay{position:fixed; inset:0; background:rgba(21,41,31,.55); display:flex; align-items:center; justify-content:center; z-index:600;}
+  .pin-overlay[hidden]{display:none;}
+  .pin-box{background:var(--card-bg); border-radius:14px; padding:1.6rem 1.8rem; width:280px; box-shadow:0 10px 30px rgba(0,0,0,.2);}
+  .pin-box h3{margin:0 0 .8rem; color:var(--green-dark); font-size:1.05rem;}
+  .pin-box input{width:100%; margin-bottom:.8rem; text-align:center; letter-spacing:.3em; font-size:1.1rem;}
+  .pin-box .row{display:flex; gap:.6rem;}
+  .pin-box button{all:unset; cursor:pointer; flex:1; text-align:center; padding:.55rem; border-radius:8px; font-weight:600; font-size:.85rem;}
+  .pin-box .go{background:var(--green-dark); color:#F1E8D5;}
+  .pin-box .cancel{background:#EEE9DA; color:var(--ink-soft);}
+  .pin-box .err{color:var(--unpaid-text); font-size:.78rem; margin:-.4rem 0 .6rem;}
+  .pin-box .ok-msg{color:var(--paid-text); font-size:.78rem; margin:-.4rem 0 .6rem;}
+  .pin-box .hint-text{font-size:.8rem; color:var(--ink-soft); line-height:1.5; margin:0 0 .9rem;}
+  .pin-box .linklike{all:unset; cursor:pointer; font-size:.78rem; color:var(--gold); font-weight:600; display:block; text-align:center; margin-top:.9rem;}
+  .pin-box .field-label{display:block; font-size:.74rem; font-weight:600; color:var(--ink-soft); margin:0 0 .3rem; text-align:left;}
+  .pin-box .forgot-link{text-align:right; margin:-.3rem 0 0;}
+  .pay-select{width:100%; padding:.55rem .8rem; border:1px solid var(--line); background:#fff;
+    border-radius:8px; font-family:'Hind Siliguri',sans-serif; font-size:.92rem; color:var(--ink);}
+  .pay-row{display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:.9rem;}
+  .pay-field{flex:1; min-width:190px;}
+  .pay-field .field-label{display:block; font-size:.74rem; font-weight:600; color:var(--ink-soft); margin:0 0 .3rem;}
+  .pay-amount{padding:.5rem 1rem; border:1px solid var(--line); border-radius:8px; background:#F7F4EA;
+    font-size:1.05rem; font-weight:700; color:var(--gold); white-space:nowrap;}
+  .pay-actions{display:flex; gap:.6rem; flex-wrap:wrap;}
+  .pay-btn{all:unset; cursor:pointer; padding:.6rem 1.1rem; border-radius:9px; font-weight:600; font-size:.88rem;
+    background:var(--green-dark); color:#F1E8D5; text-align:center;}
+  .pay-btn.claim{background:var(--gold); color:#3a2a08;}
+  .pay-btn:hover{opacity:.9;}
+  .pay-qr-wrap{display:flex; flex-direction:column; align-items:center; gap:.6rem;
+    padding:1.1rem; margin:0 0 1rem; background:#F7F4EA; border:1px solid var(--line); border-radius:12px;}
+  .pay-qr-wrap .pay-qr{background:#fff; padding:10px; border-radius:8px; line-height:0;}
+  .pay-qr-wrap .pay-qr img{display:block;}
+  .copy-btn{all:unset; cursor:pointer; font-size:.74rem; font-weight:700; color:var(--green-dark);
+    background:#fff; border:1px solid var(--line); border-radius:14px; padding:.25rem .7rem; white-space:nowrap;}
+  .copy-btn:hover{background:#EDF6EA;}
+  .pay-manual-lead{display:flex; align-items:center; justify-content:center; gap:.6rem; flex-wrap:wrap;
+    background:#EDF6EA; border:1.5px solid var(--green); border-radius:12px;
+    padding:.8rem 1rem; font-size:.95rem; color:var(--green-dark);}
+  .pay-manual-lead .mono{color:var(--green-dark); font-size:1.05rem; font-weight:700;}
+  .receipt-link{font-size:.78rem; font-weight:700; color:var(--green-dark); text-decoration:none;
+    border-bottom:1px dashed var(--green); white-space:nowrap;}
+  .receipt-link:hover{color:var(--green);}
+  .pay-qr-fallback{margin-top:1rem;}
+  .pay-qr-fallback summary{cursor:pointer; font-size:.82rem; font-weight:600; color:var(--green);
+    list-style:none;}
+  .pay-qr-fallback summary::-webkit-details-marker{display:none;}
+  .pay-qr-fallback summary::before{content:'▸ '; }
+  .pay-qr-fallback[open] summary::before{content:'▾ ';}
+  .pay-qr-fallback .pay-qr-wrap{margin-top:.7rem;}
+  .pay-subhead{margin:1.3rem 0 .6rem; font-size:.95rem; color:var(--green-dark); border-top:1px solid var(--line); padding-top:1rem;}
+  .approve-btn{all:unset; cursor:pointer; padding:.35rem .8rem; border-radius:7px; font-weight:600; font-size:.76rem;
+    background:var(--green); color:#fff; white-space:nowrap;}
+  .approve-btn:hover{opacity:.88;}
+  .reject-btn{all:unset; cursor:pointer; padding:.35rem .8rem; border-radius:7px; font-weight:600; font-size:.76rem;
+    background:#B4453A; color:#fff; white-space:nowrap;}
+  .reject-btn:hover{opacity:.88;}
+  .btn-pair{display:flex; gap:.4rem; flex-wrap:wrap;}
+  .pay-tag{display:inline-block; font-size:.72rem; font-weight:700; padding:.15rem .5rem; border-radius:12px;
+    background:#EDF6EA; color:var(--green-dark); border:1px solid #C9E0BF;}
+  .pay-tag.loan{background:#FBF1DC; color:#6b4d09; border-color:#E6D3A6;}
+  .pay-tag.fine{background:#FBEAEA; color:#8a3030; border-color:#EFC7C7;}
+  .fine-month-list{display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.3rem;}
+  .fine-month-item{display:flex; align-items:center; gap:.4rem; font-size:.82rem;
+    background:#FBF1F1; border:1px solid #EFC7C7; border-radius:8px; padding:.4rem .7rem; cursor:pointer;}
+  .fine-month-item input{margin:0; accent-color:#8a3030;}
+  .msg-err{color:var(--unpaid-text); font-size:.82rem; margin-top:.7rem;}
+  .msg-ok{color:var(--paid-text); font-size:.82rem; margin-top:.7rem;}
+
+  /* ================= welcome / login gate ================= */
+  .welcome{position:fixed; inset:0; z-index:120; overflow-y:auto;
+    background:
+      radial-gradient(900px 520px at 12% 8%, rgba(198,124,62,.30), transparent 60%),
+      radial-gradient(760px 520px at 92% 92%, rgba(46,107,79,.55), transparent 62%),
+      linear-gradient(150deg, #12241B 0%, #16301F 45%, #1E4A35 100%);
+    display:flex; align-items:center; justify-content:center; padding:2.4rem 1.4rem;}
+  .welcome-inner{width:min(1040px,100%); display:grid; grid-template-columns:1.15fr .85fr;
+    gap:3.2rem; align-items:center;}
+  .wc-hero{color:#EFE6D2;}
+  .wc-logo-wrap{display:inline-flex; align-items:center; justify-content:center;
+    background:rgba(251,245,231,.96); border-radius:24px; padding:.85rem;
+    box-shadow:0 14px 34px rgba(0,0,0,.30); margin-bottom:1.5rem;}
+  .wc-logo-wrap svg{display:block; width:104px; height:104px;}
+  .brand-logo{display:block; width:62px; height:62px; margin:0 auto .9rem;
+    background:rgba(251,245,231,.95); border-radius:50%; padding:4px;}
+  .wc-eyebrow{font-family:'IBM Plex Mono',monospace; font-size:.7rem; letter-spacing:.24em;
+    text-transform:uppercase; color:var(--active-bg); margin:0 0 1rem;}
+  /* Bengali has no upper case, and wide tracking pulls its conjuncts apart —
+     so the Bengali half of the eyebrow keeps normal spacing and its own face. */
+  .wc-eyebrow .bn{font-family:'Hind Siliguri',sans-serif; letter-spacing:normal;
+    text-transform:none; font-size:.78rem; white-space:nowrap;}
+  .wc-hero h1{font-family:'Tiro Bangla',serif; font-weight:400; margin:0 0 .5rem;
+    font-size:clamp(2rem,4.4vw,3.1rem); line-height:1.15; color:#FBF5E7;}
+  .wc-hero h1 .gold{color:var(--active-bg);}
+  .wc-rule{width:64px; height:3px; background:var(--active-bg); border-radius:3px; margin:1.1rem 0 1.2rem;}
+  .wc-hero p{margin:0 0 .55rem; font-size:.98rem; line-height:1.75; color:#B9CDBD; max-width:44ch;}
+  .wc-clock{display:flex; align-items:baseline; gap:.7rem; flex-wrap:wrap; margin:0 0 1.1rem;}
+  .wc-clock .wc-clock-time{font-family:'IBM Plex Mono',monospace; font-size:1.35rem; font-weight:600;
+    color:var(--active-bg); letter-spacing:.02em;}
+  .wc-clock .wc-clock-date{font-size:.82rem; color:#9FB6A4;}
+  .wc-stats{display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1.7rem;}
+  .wc-stat{background:rgba(255,255,255,.07); border:1px solid rgba(239,230,210,.16);
+    border-radius:12px; padding:.7rem 1rem; min-width:104px;}
+  .wc-stat .k{font-size:.68rem; letter-spacing:.05em; color:#93AC98; margin-bottom:.25rem;}
+  .wc-stat .v{font-family:'IBM Plex Mono',monospace; font-size:1.15rem; font-weight:600; color:#FBF5E7;}
+  .wc-stat .v.gold{color:var(--active-bg);}
+  .wc-site{display:inline-flex; align-items:center; gap:.45rem; margin-top:1.6rem; font-size:.82rem;
+    font-weight:600; color:#CFE0D2; text-decoration:none; border-bottom:1px dashed rgba(207,224,210,.45);
+    padding-bottom:2px;}
+  .wc-site:hover{color:var(--active-bg); border-color:var(--active-bg);}
+
+  .wc-card{background:#FBF7EC; border-radius:18px; padding:2rem 1.9rem 1.7rem;
+    box-shadow:0 26px 60px rgba(0,0,0,.34);}
+  .wc-card h2{font-family:'Tiro Bangla',serif; font-weight:400; margin:0 0 .3rem;
+    font-size:1.42rem; color:var(--green-dark);}
+  .wc-card .sub{font-size:.82rem; color:var(--ink-soft); margin:0 0 1.3rem; line-height:1.6;}
+  .wc-card label{display:block; font-size:.74rem; font-weight:700; letter-spacing:.04em;
+    color:var(--green-dark); margin:0 0 .3rem;}
+  .wc-card input{width:100%; padding:.75rem .85rem; font-size:.95rem; font-family:inherit;
+    border:1.5px solid var(--line); border-radius:10px; background:#fff; color:var(--ink);
+    margin-bottom:.95rem; outline:none;}
+  .wc-card input:focus{border-color:var(--green); box-shadow:0 0 0 3px rgba(46,107,79,.12);}
+  .wc-go{all:unset; display:block; width:100%; text-align:center; cursor:pointer; box-sizing:border-box;
+    padding:.85rem 1rem; border-radius:11px; font-size:.98rem; font-weight:700;
+    background:var(--green-dark); color:#F6EEDC; margin-top:.35rem;}
+  .wc-go:hover{background:var(--green);}
+  .wc-go[disabled]{opacity:.6; cursor:default;}
+  .wc-link{all:unset; cursor:pointer; display:block; text-align:center; margin-top:1rem;
+    font-size:.8rem; font-weight:600; color:var(--green); text-decoration:underline;}
+  .wc-note{margin:1.3rem 0 0; padding-top:1rem; border-top:1px solid var(--line);
+    font-size:.76rem; line-height:1.75; color:var(--ink-soft);}
+  .wc-err{background:var(--unpaid-bg); color:var(--unpaid-text); border-radius:9px;
+    padding:.6rem .8rem; font-size:.82rem; margin-bottom:1rem;}
+
+  @media (max-width:860px){
+    .welcome-inner{grid-template-columns:1fr; gap:2rem;}
+    .welcome{align-items:flex-start; padding:1.8rem 1.1rem 2.6rem;}
+    .wc-card{padding:1.6rem 1.3rem 1.4rem;}
+  }
+
+  [hidden]{display:none!important;}
+
+  @media (max-width:760px){
+    body{flex-direction:column;}
+    .sidebar{width:100%; height:auto; position:relative;}
+    .main{padding:1.2rem;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= fund mark =================
+     Original artwork for Unique Rural Fund: a sapling growing out of a stack
+     of saved coins. Drawn as vectors so it stays sharp at any size, weighs
+     ~1.5 KB, needs no image file, no Drive link and no network request.
+     Defined once here, then referenced with <use> wherever it is shown.
+     ============================================================ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="urfMark" viewBox="0 0 200 200">
+    <circle cx="100" cy="100" r="94" fill="#1E4A35"/>
+    <circle cx="100" cy="100" r="83" fill="none" stroke="#B8892B" stroke-width="3" opacity=".9"/>
+    <ellipse cx="100" cy="153" rx="45" ry="11.5" fill="#8A6019"/>
+    <ellipse cx="100" cy="148" rx="45" ry="11.5" fill="#B8892B"/>
+    <ellipse cx="100" cy="134" rx="36" ry="9.5" fill="#8A6019"/>
+    <ellipse cx="100" cy="130" rx="36" ry="9.5" fill="#C79B3B"/>
+    <ellipse cx="100" cy="117" rx="27" ry="7.5" fill="#8A6019"/>
+    <ellipse cx="100" cy="114" rx="27" ry="7.5" fill="#D9B255"/>
+    <path d="M100 114 C100 96 100 80 100 60" stroke="#5E9E58" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <path d="M99 92 C83 99 61 88 51 62 C73 53 94 69 99 92 Z" fill="#4E9A5E"/>
+    <path d="M99 92 C88 84 72 74 53 64" stroke="#2E6B4F" stroke-width="2" fill="none" opacity=".55"/>
+    <path d="M101 74 C117 81 139 70 149 44 C127 35 106 51 101 74 Z" fill="#7FB069"/>
+    <path d="M101 74 C112 66 128 56 147 46" stroke="#3E7F52" stroke-width="2" fill="none" opacity=".5"/>
+    <circle cx="100" cy="56" r="5.5" fill="#D9B255"/>
+  </symbol>
+</svg>
+
+<div class="welcome" id="welcomeScreen" hidden>
+  <div class="welcome-inner">
+    <div class="wc-hero">
+      <div class="wc-logo-wrap">
+        <svg role="img" aria-label="Unique Rural Fund"><use href="#urfMark"/></svg>
+      </div>
+      <p class="wc-eyebrow">Est. 2021 <span class="bn">· সদস্য সঞ্চয় ও ঋণ তহবিল</span></p>
+      <h1>Welcome to<br><span class="gold">Unique Rural Fund</span></h1>
+      <div class="wc-rule"></div>
+      <div class="wc-clock" id="wcClock">
+        <span class="wc-clock-time" id="wcClockTime">—</span>
+        <span class="wc-clock-date" id="wcClockDate">—</span>
+      </div>
+      <p>আমাদের নিজেদের গড়া তহবিল — প্রতি মাসে ছোট ছোট জমা থেকে তৈরি হয়েছে সবার ভরসার জায়গা।</p>
+      <p>নিজের <strong style="color:#EFE6D2;">User ID ও Password</strong> দিয়ে ঢুকলে নিজের সব হিসাব দেখতে পাবেন এবং অনলাইনে টাকা জমা দিতে পারবেন।</p>
+      <div class="wc-stats" id="wcStats"></div>
+      <a class="wc-site" href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a>
+    </div>
+
+    <div class="wc-card">
+      <h2>লগইন করুন</h2>
+      <p class="sub">শুধুমাত্র ফান্ডের সদস্যদের জন্য</p>
+      <div class="wc-err" id="wcErr" hidden></div>
+      <label for="wcId">User ID (আপনার নাম)</label>
+      <input type="text" id="wcId" placeholder="যেমন: Satyajit Das" autocomplete="username">
+      <label for="wcPin">Password</label>
+      <input type="password" id="wcPin" placeholder="ডিফল্ট: আপনার মোবাইল নম্বর" autocomplete="current-password">
+      <button class="wc-go" id="wcGo" onclick="welcomeLogin(event)">ঢুকুন →</button>
+      <button type="button" class="wc-link" onclick="welcomeForgot()">Password ভুলে গেছেন?</button>
+      <p class="wc-note">
+        <strong>User ID</strong> = Sheet-এ লেখা আপনার নিজের নাম (যেমন Satyajit Das)<br>
+        <strong>Password</strong> = আপনার মোবাইল নম্বর — নিজের ইমেইলে OTP নিয়ে বদলে নিতে পারবেন।
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="sidebar" id="sidebar" hidden>
+  <div class="brand">
+    <svg class="brand-logo" aria-hidden="true"><use href="#urfMark"/></svg>
+    <h1>Unique Rural<br>Fund</h1>
+    <p id="brandSub">সদস্য সঞ্চয় ও ঋণ বিবরণী</p>
+  </div>
+  <nav class="navlist" id="navlist"></nav>
+  <div class="edit-toggle">
+    <button class="edit-btn" id="memberBtn" style="margin-bottom:.5rem;">👤 ব্যক্তিগত তথ্য দেখুন</button>
+    <button class="edit-btn" id="editBtn">🔒 এডিট মোড</button>
+  </div>
+</div>
+
+<div class="main" id="mainArea" hidden>
+  <div class="topbar">
+    <h2 class="page-title serif" id="pageTitle"></h2>
+    <div class="topbar-right">
+      <div class="user-chip" id="userChip" hidden><span class="uc-ico">👤</span> <span id="userChipName"></span> <button type="button" class="uc-out" onclick="memberLogout()" title="লগআউট">লগআউট</button></div>
+      <button class="refresh-btn" id="refreshBtn" title="সর্বশেষ ডেটা লোড করুন"><span class="ic">⟳</span> রিফ্রেশ</button>
+      <div class="saved-indicator" id="savedIndicator"><span class="dot"></span> <span id="savedText">সংরক্ষিত</span></div>
+    </div>
+  </div>
+  <div id="pageBody"></div>
+</div>
+
+<div class="loading-screen" id="loadingScreen"><div class="spin"></div><p>লোড হচ্ছে...</p></div>
+
+<div class="pin-overlay" id="pinOverlay" hidden>
+  <div class="pin-box">
+    <div id="pinNormalView">
+      <h3>এডিট মোড আনলক করুন</h3>
+      <div class="err" id="pinErr" hidden>ভুল PIN, আবার চেষ্টা করুন।</div>
+      <input type="text" id="pinInput" inputmode="numeric" placeholder="PIN দিন" maxlength="10">
+      <div class="row">
+        <button class="cancel" onclick="closePinBox()">বাতিল</button>
+        <button class="go" onclick="submitPin()">আনলক</button>
+      </div>
+      <button type="button" class="linklike" onclick="showForgotView()">PIN ভুলে গেছেন?</button>
+    </div>
+    <div id="pinForgotView" hidden>
+      <h3>PIN রিসেট করুন</h3>
+      <div class="err" id="forgotErr" hidden></div>
+      <div class="ok-msg" id="forgotOk" hidden></div>
+      <div id="forgotStep1">
+        <p class="hint-text">Prasun Jyoti-র ইমেইলে একটা OTP পাঠানো হবে। সেই OTP দিয়ে নতুন PIN সেট করা যাবে।</p>
+        <button class="go" style="width:100%; display:block;" onclick="requestOtp(event)">OTP পাঠান</button>
+      </div>
+      <div id="forgotStep2" hidden>
+        <input type="text" id="otpInput" inputmode="numeric" placeholder="OTP দিন" maxlength="6">
+        <input type="text" id="newPinInput" inputmode="numeric" placeholder="নতুন PIN দিন" maxlength="10">
+        <button class="go" style="width:100%; display:block;" onclick="confirmOtp(event)">PIN পরিবর্তন করুন</button>
+      </div>
+      <button type="button" class="linklike" onclick="showNormalView()">← ফিরে যান</button>
+    </div>
+  </div>
+</div>
+
+<div class="pin-overlay" id="memberOverlay" hidden>
+  <div class="pin-box">
+    <div id="memberLoginView">
+      <h3>ব্যক্তিগত তথ্য দেখুন</h3>
+      <div class="err" id="memberErr" hidden></div>
+      <label class="field-label" for="memberIdInput">User ID (আপনার নাম)</label>
+      <input type="text" id="memberIdInput" placeholder="যেমন: Satyajit Das" style="letter-spacing:normal; text-align:left;">
+      <label class="field-label" for="memberPinInput">Password</label>
+      <input type="text" id="memberPinInput" placeholder="ডিফল্ট: আপনার মোবাইল নম্বর" style="letter-spacing:normal; text-align:left;">
+      <button type="button" class="linklike forgot-link" onclick="showMemberPwdView()">Password ভুলে গেছেন?</button>
+      <div class="row" style="margin-top:.9rem;">
+        <button class="cancel" onclick="closeMemberBox()">বাতিল</button>
+        <button class="go" onclick="submitMemberPin()">দেখুন</button>
+      </div>
+    </div>
+    <div id="memberPwdView" hidden>
+      <h3>Password পরিবর্তন করুন</h3>
+      <div class="err" id="memberPwdErr" hidden></div>
+      <div class="ok-msg" id="memberPwdOk" hidden></div>
+      <div id="memberPwdStep1">
+        <label class="field-label" for="memberPwdIdInput">User ID (আপনার নাম)</label>
+        <input type="text" id="memberPwdIdInput" placeholder="যেমন: Satyajit Das" style="letter-spacing:normal; text-align:left;">
+        <p class="hint-text">আপনার নিজের ইমেইলে (Sheet-এ যা লেখা আছে) একটা OTP পাঠানো হবে।</p>
+        <button class="go" style="width:100%; display:block;" onclick="requestMemberPwdOtp(event)">OTP পাঠান</button>
+      </div>
+      <div id="memberPwdStep2" hidden>
+        <label class="field-label" for="memberOtpInput">OTP</label>
+        <input type="text" id="memberOtpInput" inputmode="numeric" placeholder="ইমেইলে পাওয়া OTP দিন" maxlength="6">
+        <label class="field-label" for="memberNewPassInput">নতুন Password</label>
+        <input type="text" id="memberNewPassInput" placeholder="নতুন Password দিন" style="letter-spacing:normal; text-align:left;">
+        <button class="go" style="width:100%; display:block;" onclick="confirmMemberPwd(event)">Password পরিবর্তন করুন</button>
+      </div>
+      <button type="button" class="linklike" onclick="showMemberLoginView()">← ফিরে যান</button>
+    </div>
+  </div>
+</div>
+
+<div class="pin-overlay" id="memberViewOverlay" hidden>
+  <div class="pin-box" style="width:min(90vw,420px); max-height:85vh; overflow-y:auto;">
+    <div id="memberViewBody"></div>
+    <button type="button" class="linklike" onclick="closeMemberView()">বন্ধ করুন</button>
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG — deploy Code.gs then paste the exec URL here ================= */
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPGv8Pr1IU3jhnAehKGJQ9XVTtUjRtYQh9eUsJOY6FwuvSY48ApETkz59MKlr5dsoR5w/exec";
+const AUTO_REFRESH_SEC = 90;
+const ADMIN_NAME = 'Prasun Jyoti';   // only this member + the collector see the approve/reject panel
+
+
+let DATA = null;
+let editPin = sessionStorage.getItem('urf_edit_pin') || null;
+let currentPage = 'overview';
+let memberSession = null; // {userId, pin} — kept in memory only, for the member's own payment claims
+
+/* ================= welcome-screen live clock ================= */
+// Runs off the visitor's own device clock (no server round-trip) — plenty
+// accurate for a "what time/day is it" display, and keeps ticking even
+// before any data has loaded.
+const BN_DIGITS = ['০','১','২','৩','৪','৫','৬','৭','৮','৯'];
+function toBnDigits(n){ return String(n).replace(/[0-9]/g, d => BN_DIGITS[+d]); }
+const BN_WEEKDAYS = ['রবিবার','সোমবার','মঙ্গলবার','বুধবার','বৃহস্পতিবার','শুক্রবার','শনিবার'];
+const BN_MONTHS = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+function bnDayPeriod(h){
+  if(h<6) return 'রাত';
+  if(h<12) return 'সকাল';
+  if(h<16) return 'দুপুর';
+  if(h<19) return 'বিকাল';
+  return 'রাত';
+}
+function updateWelcomeClock(){
+  const timeEl = document.getElementById('wcClockTime');
+  const dateEl = document.getElementById('wcClockDate');
+  if(!timeEl || !dateEl) return;
+  const now = new Date();
+  dateEl.textContent = BN_WEEKDAYS[now.getDay()] + ', ' + toBnDigits(now.getDate()) + ' '
+    + BN_MONTHS[now.getMonth()] + ' ' + toBnDigits(now.getFullYear());
+  let h = now.getHours();
+  const period = bnDayPeriod(h);
+  h = h % 12; if(h === 0) h = 12;
+  const mm = toBnDigits(String(now.getMinutes()).padStart(2,'0'));
+  const ss = toBnDigits(String(now.getSeconds()).padStart(2,'0'));
+  timeEl.textContent = period + ' ' + toBnDigits(h) + ':' + mm + ':' + ss;
+}
+updateWelcomeClock();
+setInterval(updateWelcomeClock, 1000);
+
+/* ================= fetch / save plumbing ================= */
+async function loadData(silent){
+  try{
+    const res = await fetch(SCRIPT_URL + '?api=1&t=' + Date.now());
+    const json = await res.json();
+    if(json.error) throw new Error(json.error);
+    DATA = json;
+    document.getElementById('loadingScreen').classList.add('hidden');
+    if(!memberSession){ showWelcome(); return; }
+    renderPage(currentPage);
+    if(!silent) flashSaved('লাইভ ডেটা লোড হয়েছে', false);
+  }catch(err){
+    console.error(err);
+    if(DATA){ flashSaved('সিঙ্ক ব্যর্থ হয়েছে', true); return; }
+    const msg = 'ডেটা লোড হয়নি — ইন্টারনেট চেক করে আবার চেষ্টা করুন। (' + err.message + ')';
+    const wcBox = document.getElementById('wcErr');
+    if(!document.getElementById('welcomeScreen').hidden){
+      wcBox.textContent = msg;
+      wcBox.dataset.kind = 'load';   // so a later successful load can clear it
+      wcBox.hidden = false;
+    } else {
+      document.getElementById('loadingScreen').querySelector('p').textContent = msg;
+    }
+  }
+}
+
+async function sendEdit(action, fields){
+  if(!editPin){ openPinBox(); return null; }
+  flashSaved('সংরক্ষণ হচ্ছে...', false);
+  try{
+    const body = Object.assign({action, pin: editPin}, fields);
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'}, // avoids CORS preflight on Apps Script
+      body: JSON.stringify(body)
+    });
+    const json = await res.json();
+    if(!json.ok){
+      flashSaved(json.error || 'সংরক্ষণ ব্যর্থ', true);
+      if(/PIN/i.test(json.error||'')){ editPin=null; sessionStorage.removeItem('urf_edit_pin'); updateEditBtn(); }
+      renderPage(currentPage); // revert any optimistic UI change — the write did not actually happen
+      return null;
+    }
+    DATA = json.data;
+    flashSaved('সংরক্ষিত হয়েছে', false);
+    renderPage(currentPage);
+    return json.result;
+  }catch(err){
+    flashSaved('নেটওয়ার্ক সমস্যা', true);
+    renderPage(currentPage); // revert any optimistic UI change — the write did not actually happen
+    return null;
+  }
+}
+
+function flashSaved(text, isErr){
+  const ind = document.getElementById('savedIndicator');
+  document.getElementById('savedText').textContent = text;
+  ind.classList.toggle('err', !!isErr);
+  ind.style.opacity = '1';
+  clearTimeout(flashSaved._t);
+  flashSaved._t = setTimeout(()=>{ ind.style.opacity = '0.55'; }, 2200);
+}
+
+/* ================= edit-mode / PIN ================= */
+function isEditing(){ return !!editPin; }
+function updateEditBtn(){
+  const b = document.getElementById('editBtn');
+  b.textContent = isEditing() ? '🔓 এডিট মোড (চালু)' : '🔒 এডিট মোড';
+  b.classList.toggle('unlocked', isEditing());
+  b.hidden = !isAdminMember();   // only Prasun Jyoti ever sees the edit-mode button
+}
+document.getElementById('editBtn').addEventListener('click', ()=>{
+  if(isEditing()){ editPin=null; sessionStorage.removeItem('urf_edit_pin'); updateEditBtn(); renderPage(currentPage); }
+  else openPinBox();
+});
+function openPinBox(){
+  document.getElementById('pinErr').hidden = true;
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinOverlay').hidden = false;
+  showNormalView();
+  setTimeout(()=>document.getElementById('pinInput').focus(), 50);
+}
+function closePinBox(){ document.getElementById('pinOverlay').hidden = true; }
+
+function showForgotView(){
+  document.getElementById('pinNormalView').hidden = true;
+  document.getElementById('pinForgotView').hidden = false;
+  document.getElementById('forgotStep1').hidden = false;
+  document.getElementById('forgotStep2').hidden = true;
+  document.getElementById('forgotErr').hidden = true;
+  document.getElementById('forgotOk').hidden = true;
+  document.getElementById('otpInput').value = '';
+  document.getElementById('newPinInput').value = '';
+}
+function showNormalView(){
+  document.getElementById('pinForgotView').hidden = true;
+  document.getElementById('pinNormalView').hidden = false;
+}
+async function requestOtp(ev){
+  const btn = ev.target;
+  const errBox = document.getElementById('forgotErr');
+  const okBox = document.getElementById('forgotOk');
+  errBox.hidden = true; okBox.hidden = true;
+  btn.disabled = true;
+  btn.textContent = 'পাঠানো হচ্ছে...';
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'requestPinReset'})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      errBox.textContent = json.error || 'OTP পাঠাতে ব্যর্থ, আবার চেষ্টা করুন।';
+      errBox.hidden = false;
+      return;
+    }
+    document.getElementById('forgotStep1').hidden = true;
+    document.getElementById('forgotStep2').hidden = false;
+    okBox.textContent = 'OTP পাঠানো হয়েছে, ইমেইল চেক করুন।';
+    okBox.hidden = false;
+  }catch(err){
+    errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।';
+    errBox.hidden = false;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'OTP পাঠান';
+  }
+}
+async function confirmOtp(ev){
+  const otp = document.getElementById('otpInput').value.trim();
+  const newPin = document.getElementById('newPinInput').value.trim();
+  const errBox = document.getElementById('forgotErr');
+  const okBox = document.getElementById('forgotOk');
+  if(!otp || !newPin) return;
+  const btn = ev.target;
+  btn.disabled = true;
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'confirmPinReset', otp, newPin})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      errBox.textContent = json.error || 'PIN পরিবর্তন ব্যর্থ হয়েছে।';
+      errBox.hidden = false;
+      okBox.hidden = true;
+      return;
+    }
+    errBox.hidden = true;
+    okBox.textContent = 'PIN পরিবর্তন হয়েছে! এখন নতুন PIN দিয়ে আনলক করুন।';
+    okBox.hidden = false;
+    setTimeout(()=>{ showNormalView(); document.getElementById('pinInput').focus(); }, 1800);
+  }catch(err){
+    errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।';
+    errBox.hidden = false;
+  }finally{
+    btn.disabled = false;
+  }
+}
+async function submitPin(){
+  const val = document.getElementById('pinInput').value.trim();
+  if(!val) return;
+  const goBtn = document.querySelector('.pin-box .go');
+  const errBox = document.getElementById('pinErr');
+  errBox.hidden = true;
+  goBtn.textContent = 'যাচাই হচ্ছে...';
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'verifyPin', pin: val})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      errBox.hidden = false;
+      return;
+    }
+    editPin = val;
+    sessionStorage.setItem('urf_edit_pin', val);
+    updateEditBtn();
+    closePinBox();
+    renderPage(currentPage);
+  }catch(err){
+    errBox.hidden = false;
+  }finally{
+    goBtn.textContent = 'আনলক';
+  }
+}
+document.getElementById('pinInput').addEventListener('keydown', e=>{ if(e.key==='Enter') submitPin(); });
+
+/* ================= welcome screen / login gate ================= */
+
+function showWelcome(){
+  const screen = document.getElementById('welcomeScreen');
+  const wasHidden = screen.hidden;
+  document.getElementById('sidebar').hidden = true;
+  document.getElementById('mainArea').hidden = true;
+  screen.hidden = false;
+  if(DATA){
+    document.getElementById('wcStats').innerHTML = `
+      <div class="wc-stat"><div class="k">মোট সদস্য</div><div class="v">${DATA.contributions.length} জন</div></div>
+      <div class="wc-stat"><div class="k">চলতি বছর</div><div class="v">${DATA.year}</div></div>`;
+    const wcBox = document.getElementById('wcErr');
+    if(wcBox.dataset.kind === 'load'){ wcBox.hidden = true; delete wcBox.dataset.kind; }
+  }
+  // Only steal focus on the first show — the 90-second auto-refresh also lands
+  // here, and must not yank the cursor out of a half-typed password.
+  if(wasHidden) setTimeout(()=>{ const el = document.getElementById('wcId'); if(el) el.focus(); }, 60);
+}
+function enterApp(){
+  document.getElementById('welcomeScreen').hidden = true;
+  document.getElementById('sidebar').hidden = false;
+  document.getElementById('mainArea').hidden = false;
+  updateUserChip();
+  renderPage(currentPage);
+}
+async function welcomeLogin(ev){
+  const userId = document.getElementById('wcId').value.trim();
+  const val = document.getElementById('wcPin').value.trim();
+  const errBox = document.getElementById('wcErr');
+  errBox.hidden = true;
+  if(!userId || !val){
+    errBox.textContent = 'User ID ও Password — দুটোই দিন।';
+    errBox.hidden = false;
+    return;
+  }
+  const btn = document.getElementById('wcGo');
+  btn.disabled = true;
+  btn.textContent = 'দেখা হচ্ছে...';
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'memberLogin', userId, pin: val})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      errBox.textContent = json.error || 'ভুল User ID অথবা Password';
+      errBox.hidden = false;
+      return;
+    }
+    memberSession = {userId: json.name || userId, pin: val};
+    memberViewCache = json;
+    document.getElementById('wcPin').value = '';
+    if(!DATA){ await loadData(true); }
+    enterApp();
+    flashSaved('স্বাগতম, ' + memberSession.userId, false);
+  }catch(err){
+    errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।';
+    errBox.hidden = false;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'ঢুকুন →';
+  }
+}
+document.getElementById('wcId').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('wcPin').focus(); });
+document.getElementById('wcPin').addEventListener('keydown', e=>{ if(e.key==='Enter') welcomeLogin(e); });
+function welcomeForgot(){
+  document.getElementById('memberOverlay').hidden = false;
+  showMemberPwdView();
+  document.getElementById('memberPwdIdInput').value = document.getElementById('wcId').value.trim();
+}
+
+/* ================= member self-view (read-only, own User ID + Password) ================= */
+let memberViewCache = null;
+document.getElementById('memberBtn').addEventListener('click', ()=>{
+  if(memberViewCache){ showMemberView(memberViewCache); refreshMemberView(); return; }
+  refreshMemberView();
+});
+async function refreshMemberView(){
+  if(!memberSession) return;
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'memberLogin', userId: memberSession.userId, pin: memberSession.pin})
+    });
+    const json = await res.json();
+    if(json.ok){
+      memberViewCache = json;
+      showMemberView(json);   // redraw with the freshest numbers
+    }
+  }catch(err){ /* keep showing the cached view */ }
+}
+function closeMemberBox(){ document.getElementById('memberOverlay').hidden = true; }
+document.getElementById('memberPinInput').addEventListener('keydown', e=>{ if(e.key==='Enter') submitMemberPin(); });
+document.getElementById('memberIdInput').addEventListener('keydown', e=>{ if(e.key==='Enter') submitMemberPin(); });
+async function submitMemberPin(){
+  const userId = document.getElementById('memberIdInput').value.trim();
+  const val = document.getElementById('memberPinInput').value.trim();
+  if(!userId || !val) return;
+  const errBox = document.getElementById('memberErr');
+  errBox.hidden = true;
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'memberLogin', userId, pin: val})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      errBox.textContent = json.error || 'ভুল User ID অথবা Password';
+      errBox.hidden = false;
+      return;
+    }
+    const wasLockedOut = !document.getElementById('welcomeScreen').hidden;
+    memberSession = {userId: json.name || userId, pin: val};
+    memberViewCache = json;
+    closeMemberBox();
+    if(wasLockedOut){ enterApp(); flashSaved('স্বাগতম, ' + memberSession.userId, false); }
+    else { updateUserChip(); renderPage(currentPage); }
+    showMemberView(json);
+  }catch(err){
+    errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।';
+    errBox.hidden = false;
+  }
+}
+function showMemberPwdView(){
+  document.getElementById('memberLoginView').hidden = true;
+  document.getElementById('memberPwdView').hidden = false;
+  document.getElementById('memberPwdStep1').hidden = false;
+  document.getElementById('memberPwdStep2').hidden = true;
+  document.getElementById('memberPwdErr').hidden = true;
+  document.getElementById('memberPwdOk').hidden = true;
+  document.getElementById('memberPwdIdInput').value = document.getElementById('memberIdInput').value;
+  document.getElementById('memberOtpInput').value = '';
+  document.getElementById('memberNewPassInput').value = '';
+}
+function showMemberLoginView(){
+  document.getElementById('memberPwdView').hidden = true;
+  document.getElementById('memberLoginView').hidden = false;
+}
+async function requestMemberPwdOtp(ev){
+  const userId = document.getElementById('memberPwdIdInput').value.trim();
+  const errBox = document.getElementById('memberPwdErr');
+  const okBox = document.getElementById('memberPwdOk');
+  errBox.hidden = true; okBox.hidden = true;
+  if(!userId){ errBox.textContent = 'আপনার নাম (User ID) দিন'; errBox.hidden = false; return; }
+  const btn = ev.target;
+  btn.disabled = true;
+  btn.textContent = 'পাঠানো হচ্ছে...';
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'requestMemberPasswordOtp', userId})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      errBox.textContent = json.error || 'OTP পাঠাতে ব্যর্থ, আবার চেষ্টা করুন।';
+      errBox.hidden = false;
+      return;
+    }
+    document.getElementById('memberPwdStep1').hidden = true;
+    document.getElementById('memberPwdStep2').hidden = false;
+    okBox.textContent = 'OTP পাঠানো হয়েছে, ইমেইল চেক করুন।';
+    okBox.hidden = false;
+  }catch(err){
+    errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।';
+    errBox.hidden = false;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'OTP পাঠান';
+  }
+}
+async function confirmMemberPwd(ev){
+  const userId = document.getElementById('memberPwdIdInput').value.trim();
+  const otp = document.getElementById('memberOtpInput').value.trim();
+  const newPassword = document.getElementById('memberNewPassInput').value.trim();
+  const errBox = document.getElementById('memberPwdErr');
+  const okBox = document.getElementById('memberPwdOk');
+  if(!otp || !newPassword) return;
+  const btn = ev.target;
+  btn.disabled = true;
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'confirmMemberPasswordChange', userId, otp, newPassword})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      errBox.textContent = json.error || 'Password পরিবর্তন ব্যর্থ হয়েছে।';
+      errBox.hidden = false;
+      okBox.hidden = true;
+      return;
+    }
+    errBox.hidden = true;
+    okBox.textContent = 'Password পরিবর্তন হয়েছে! এখন নতুন Password দিয়ে লগইন করুন।';
+    okBox.hidden = false;
+    setTimeout(()=>{
+      showMemberLoginView();
+      document.getElementById('memberIdInput').value = userId;
+      document.getElementById('memberPinInput').value = '';
+      document.getElementById('memberPinInput').focus();
+    }, 1800);
+  }catch(err){
+    errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।';
+    errBox.hidden = false;
+  }finally{
+    btn.disabled = false;
+  }
+}
+function showMemberView(d){
+  const fallback = avatarUrl(d.name);
+  const imgSrc = d.photo || fallback;
+  const monthRows = d.months.map((mo,i)=>`<tr><td>${mo}</td><td class="mono">${d.pay[i]>0?('₹'+d.pay[i]):'বাকি'}</td></tr>`).join('');
+  let lastPaidContribMonth = 'এখনও দেননি';
+  for(let i=d.pay.length-1;i>=0;i--){ if(d.pay[i]>0){ lastPaidContribMonth = d.months[i]; break; } }
+  let loanHtml = '<p class="hint-text">কোনো চলতি ঋণ নেই।</p>';
+  if(d.activeLoan){
+    const l = d.activeLoan;
+    const lastPaidMonth = l.monthsPaid>0 ? l.dueDates[l.monthsPaid-1] : 'এখনও দেননি';
+    loanHtml = `<p class="hint-text">ঋণের পরিমাণ: <strong>${moneyInt(l.amount)}</strong><br>মাসিক সুদ: <strong>${moneyInt(l.monthlyInterest)}</strong><br>মোট সুদ পরিশোধিত: <strong>${moneyInt(l.interestPaid)}</strong><br>শেষ কোন মাসে সুদ দিয়েছো: <strong>${lastPaidMonth}</strong><br>ঋণ শেষ হবে: <strong>${l.closingDate}</strong></p>`;
+  }
+  document.getElementById('memberViewBody').innerHTML = `
+    <div style="text-align:center; margin-bottom:1rem;">
+      <img src="${imgSrc}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${fallback}';" style="width:80px;height:100px;object-fit:cover;border-radius:8px;border:1px solid var(--line);">
+      <h3 style="margin:.6rem 0 0;">${d.name}</h3>
+    </div>
+    <div class="table-scroll" style="max-height:220px;"><table>
+      <thead><tr><th>মাস</th><th>জমা</th></tr></thead>
+      <tbody>${monthRows}</tbody>
+    </table></div>
+    <p class="hint-text" style="margin-top:.8rem;">${d.year}-এর মোট জমা: <strong>${moneyInt(d.perYearTotal)}</strong><br>মোট ব্যালেন্স: <strong>${moneyInt(d.totalBalance)}</strong><br>শেষ কোন মাসে টাকা জমা করেছো: <strong>${lastPaidContribMonth}</strong></p>
+    <h4 style="margin:.8rem 0 .3rem; color:var(--green-dark);">ঋণের অবস্থা</h4>
+    ${loanHtml}
+    <p class="hint-text" style="margin:1rem 0 0; border-top:1px solid var(--line); padding-top:.9rem;">💰 টাকা জমা দিতে বাঁদিকের <strong>০৫ পেমেন্ট</strong> পাতায় যান — সেখানে মাসিক জমা ও ঋণের সুদ — দুটোই অনলাইনে দেওয়া যাবে।</p>
+  `;
+  document.getElementById('memberViewOverlay').hidden = false;
+}
+function closeMemberView(){ document.getElementById('memberViewOverlay').hidden = true; }
+
+/* ================= online payment (পেমেন্ট page) ================= */
+function updateUserChip(){
+  const chip = document.getElementById('userChip');
+  if(memberSession){
+    document.getElementById('userChipName').textContent = memberSession.userId;
+    chip.hidden = false;
+  } else {
+    chip.hidden = true;
+  }
+}
+function memberLogout(){
+  memberSession = null;
+  memberViewCache = null;
+  editPin = null;
+  sessionStorage.removeItem('urf_edit_pin');
+  payType = 'contribution';
+  currentPage = 'overview';
+  updateUserChip();
+  updateEditBtn();
+  document.getElementById('memberViewOverlay').hidden = true;
+  document.getElementById('wcId').value = '';
+  document.getElementById('wcPin').value = '';
+  document.getElementById('wcErr').hidden = true;
+  showWelcome();
+}
+function myContribRow(){
+  if(!memberSession || !DATA) return null;
+  return DATA.contributions.find(c=>c.name.toLowerCase()===memberSession.userId.toLowerCase()) || null;
+}
+function myActiveLoan(){
+  if(!memberSession || !DATA) return null;
+  return DATA.activeLoans.find(l=>l.name.toLowerCase()===memberSession.userId.toLowerCase()) || null;
+}
+function isCollector(){
+  return !!(memberSession && DATA && DATA.collectorName &&
+            memberSession.userId.toLowerCase() === DATA.collectorName.toLowerCase());
+}
+function isAdminMember(){
+  if(isEditing()) return true;                       // edit mode is only unlockable with the admin PIN
+  if(!memberSession) return false;
+  const n = memberSession.userId.toLowerCase();
+  // tolerant match — the sheet spelling may be "Prasun Jyoti", "Prasun Jyoti Das", etc.
+  return n === ADMIN_NAME.toLowerCase() || n.indexOf('prasun') > -1;
+}
+// only the collector (Satyajit Das) and the admin (Prasun Jyoti) ever see the approve/reject panel
+function canApprove(){ return isCollector() || isAdminMember(); }
+
+let payType = 'contribution';
+function payTypeChanged(v){ payType = v; renderPage('payment'); }
+let fineSubType = 'contribution';
+function fineSubTypeChanged(v){ fineSubType = v; renderPage('payment'); }
+
+// Recomputes the fine total from whichever month checkboxes are ticked —
+// (checked months × per-month rate) + one month's rate as the fine itself,
+// matching the rule shown on the ফাইন page. Still hand-editable afterward.
+// For the regular (non-fine) monthly-জমা / ঋণের-সুদ claim — recomputes the
+// total as (checked months × flat monthly rate) whenever a box is (un)ticked.
+function updatePayAmount(rate){
+  const amountEl = document.getElementById('payAmount');
+  if(!amountEl) return;
+  const checked = document.querySelectorAll('.pay-month-cb:checked').length;
+  const total = checked * rate;
+  amountEl.textContent = '₹' + total;
+  amountEl.dataset.amount = total;
+  renderPayQr(payType, total);
+}
+
+function updateFineAmount(){
+  const amountEl = document.getElementById('payAmount');
+  if(!amountEl) return;
+  const checked = document.querySelectorAll('.fine-month-cb:checked').length;
+  const rate = Number(amountEl.dataset.rate) || 0;
+  const total = checked ? (checked * rate + rate) : 0;
+  amountEl.value = total || '';
+  amountEl.dataset.amount = total;
+  renderPayQr('fine', total);
+}
+
+// Shared by all three payment types — the UPI reference block, the mandatory
+// receipt upload, and the submit button don't differ between them.
+function paymentFooterHTML(type, required){
+  return `
+      <div class="pay-manual-lead">
+        <span>💳 UPI ID: <span class="mono" id="payUpiIdText">${DATA.upiId||''}</span></span>
+        <button type="button" class="copy-btn" onclick="copyUpiId(event)">📋 কপি করুন</button>
+        <button type="button" class="pay-btn" style="padding:.4rem .9rem; font-size:.8rem;" onclick="openUpiApp('${type}')">📱 app খুলুন</button>
+      </div>
+      <div class="pay-qr-wrap" style="margin-top:.8rem;">
+        <div class="pay-qr" id="payQr"></div>
+        <p class="hint-text" style="margin:0; text-align:center;">${DATA.upiName||'সংগ্রাহক'}-এর UPI — উপরের আইডি কপি করে নিজের app-এ পাঠান, অথবা এই QR স্ক্যান করুন।</p>
+      </div>
+
+      <div class="pay-field" style="margin-top:1rem;">
+        <label class="field-label" for="payReceiptInput">পেমেন্টের স্ক্রিনশট (আবশ্যক)</label>
+        <input type="file" accept="image/*,application/pdf" id="payReceiptInput" class="pay-select">
+      </div>
+      <div class="pay-actions">
+        <button class="pay-btn claim" onclick="confirmPaymentClaim(event,'${type}')">✅ পেমেন্ট করেছি</button>
+      </div>
+      <div class="msg-err" id="payErr" hidden></div>
+      <div class="msg-ok" id="payOk" hidden></div>
+      <p class="hint-text" style="margin-top:.8rem;">টাকা পাঠানোর পর পেমেন্ট app-এর "Successful" স্ক্রিনশটটা উপরে বেছে নিয়ে <strong>✅ পেমেন্ট করেছি</strong>-তে চাপুন — রসিদ ছাড়া দাবি জমা নেওয়া হবে না। ${DATA.upiName||'সংগ্রাহক'} রসিদ দেখে অনুমোদন করবেন, তারপর Prasun Jyoti চূড়ান্ত করবেন।</p>`;
+}
+
+function renderPayment(){
+  const isLoan = payType === 'loan';
+  const isFine = payType === 'fine';
+  const mine = isFine ? myContribRow() : (isLoan ? myActiveLoan() : myContribRow());
+  const required = isFine ? 0 : (isLoan ? (mine ? mine.monthlyInterest : 0) : (DATA.monthlyContribution || 100));
+  let qrAmount = required; // fine overrides this below once its auto-computed total is known
+
+  const typeSelect = `
+    <div class="pay-field">
+      <label class="field-label" for="payType">কী জমা দিচ্ছেন?</label>
+      <select id="payType" class="pay-select" onchange="payTypeChanged(this.value)">
+        <option value="contribution" ${(!isLoan&&!isFine)?'selected':''}>মাসিক জমা</option>
+        <option value="loan" ${isLoan?'selected':''}>চলতি ঋণের সুদ</option>
+        <option value="fine" ${isFine?'selected':''}>ফাইন</option>
+      </select>
+    </div>`;
+
+  let claimBox;
+  if(!memberSession){
+    claimBox = `
+      <div class="pay-row">${typeSelect}</div>
+      <p class="hint-text" style="margin-top:.9rem;">নিজের টাকা জমা দিতে সাইডবারের <strong>👤 ব্যক্তিগত তথ্য দেখুন</strong>-এ নিজের User ID ও Password দিয়ে লগইন করুন। লগইন করলে উপরে আপনার নাম দেখা যাবে।</p>`;
+  } else if(!mine){
+    claimBox = `
+      <div class="pay-row">${typeSelect}</div>
+      <p class="hint-text" style="margin-top:.9rem;">${isLoan ? 'আপনার কোনো চলতি ঋণ নেই।' : 'আপনার নাম চাঁদার তালিকায় পাওয়া যায়নি।'}</p>`;
+  } else if(isFine){
+    const isLoanFine = fineSubType === 'loan';
+    const loanMine = myActiveLoan();
+    const subTypeSelect = `
+      <div class="pay-field">
+        <label class="field-label" for="fineSubType">কিসের ফাইন?</label>
+        <select id="fineSubType" class="pay-select" onchange="fineSubTypeChanged(this.value)">
+          <option value="contribution" ${!isLoanFine?'selected':''}>মাসিক জমার ফাইন</option>
+          <option value="loan" ${isLoanFine?'selected':''}>ঋণের সুদের ফাইন</option>
+        </select>
+      </div>`;
+
+    const perMonthRate = isLoanFine ? (loanMine ? loanMine.monthlyInterest : 0) : (DATA.monthlyContribution || 100);
+    let monthsBox, initialTotal = 0;
+    if(isLoanFine && !loanMine){
+      monthsBox = `<p class="hint-text" style="margin-top:.9rem;">আপনার কোনো চলতি ঋণ নেই, তাই ঋণের সুদের ফাইন প্রযোজ্য নয়।</p>`;
+    } else {
+      // Fine rule (same for both types): a month only counts once its own
+      // 15th-of-the-month deadline has actually passed, and the fine itself
+      // only kicks in once at least 2 such months have piled up — not merely
+      // "unpaid so far", which would wrongly fine someone still within grace.
+      const today = new Date();
+      const overdue = isLoanFine
+        ? loanMine.months.map((m,i)=>({label:(i+1)+'ম মাস · '+m.due, paid:m.amount!==null, deadline:parseDMY(m.due)}))
+            .filter(m=>!m.paid && m.deadline<=today)
+        : DATA.months.map((mo,i)=>({label:mo, paid:mine.pay[i]>0, deadline:new Date(Number(DATA.year), i, 15)}))
+            .filter(m=>!m.paid && m.deadline<=today);
+      if(overdue.length < 2){
+        monthsBox = `<p class="hint-text" style="margin-top:.9rem;">নিয়ম অনুযায়ী পরপর ২ মাসের সময়সীমা (১৫ তারিখ) পার না হলে ফাইন প্রযোজ্য হয় না — এখন কোনো ফাইন বকেয়া নেই। বাকি থাকা টাকা সরাসরি <a href="#" onclick="payType='${isLoanFine?'loan':'contribution'}'; renderPage('payment'); return false;">${isLoanFine?'চলতি ঋণের সুদ':'মাসিক জমা'}</a> থেকে জমা দিন।</p>`;
+      } else {
+        // All overdue months start checked — "কোন মাসগুলো বাকি" is already
+        // known from the sheet, members shouldn't have to re-figure it out.
+        initialTotal = overdue.length * perMonthRate + perMonthRate; // + one month's worth as the fine itself
+        qrAmount = initialTotal;
+        monthsBox = `
+          <div class="pay-field">
+            <label class="field-label">কোন কোন মাসের জন্য ফাইন?</label>
+            <div class="fine-month-list">
+              ${overdue.map(m=>`<label class="fine-month-item"><input type="checkbox" class="fine-month-cb" data-label="${m.label}" checked onchange="updateFineAmount()"> ${m.label}</label>`).join('')}
+            </div>
+          </div>`;
+      }
+    }
+
+    claimBox = `
+      <div class="pay-row">
+        ${typeSelect}
+        ${subTypeSelect}
+      </div>
+      ${monthsBox}
+      <div class="pay-row" style="margin-top:.8rem;">
+        <div class="pay-field" style="flex:0 0 auto;">
+          <label class="field-label" for="payAmount">মোট টাকা (বাকি মাস + ১ মাসের ফাইন)</label>
+          <input type="number" id="payAmount" class="pay-select mono" min="1" step="1"
+                 value="${initialTotal||''}" data-amount="${initialTotal}" data-rate="${perMonthRate}"
+                 oninput="this.dataset.amount=this.value||0; renderPayQr('fine', Number(this.value)||0);">
+        </div>
+      </div>
+      <p class="hint-text" style="margin:.3rem 0 1rem;">উপরের মাসগুলোর টিক অনুযায়ী টাকাটা নিজে থেকেই হিসাব হয় — নিয়মটা <a href="#" onclick="document.querySelector('[data-page=fine]').click(); return false;">এখানে দেখুন</a>। প্রয়োজনে টাকার অঙ্ক নিজে বদলেও দিতে পারেন।</p>
+      ${paymentFooterHTML('fine', 0)}`;
+  } else {
+    // One or several months can be picked in one go — the amount scales with
+    // how many are ticked. Only the single earliest unpaid one starts
+    // checked, matching what most members want most of the time; ticking
+    // more adds them to the same claim.
+    const unpaidList = isLoan
+      ? mine.months.map((m,i)=>({idx:i, label:(i+1)+'ম মাস · '+m.due, paid:m.amount!==null})).filter(m=>!m.paid)
+      : DATA.months.map((mo,i)=>({idx:i, label:mo, paid:mine.pay[i]>0})).filter(m=>!m.paid);
+
+    let monthsBox;
+    if(!unpaidList.length){
+      monthsBox = `<p class="hint-text" style="margin-top:.9rem;">কোনো মাস বাকি নেই — ${isLoan?'ঋণের সুদ':'মাসিক জমা'} সব দেওয়া আছে।</p>`;
+    } else {
+      monthsBox = `
+        <div class="pay-field">
+          <label class="field-label">কোন মাসের জন্য? (একাধিক বেছে নিতে পারেন)</label>
+          <div class="fine-month-list">
+            ${unpaidList.map((m,i)=>`<label class="fine-month-item"><input type="checkbox" class="pay-month-cb" data-idx="${m.idx}" data-label="${m.label}" ${i===0?'checked':''} onchange="updatePayAmount(${required})"> ${m.label}</label>`).join('')}
+          </div>
+        </div>`;
+    }
+    const initialPayTotal = unpaidList.length ? required : 0;
+    qrAmount = initialPayTotal;
+
+    claimBox = `
+      <div class="pay-row">${typeSelect}</div>
+      ${monthsBox}
+      <div class="pay-row" style="margin-top:.8rem;">
+        <div class="pay-field" style="flex:0 0 auto;">
+          <label class="field-label">মোট টাকা (বাছাই করা মাস অনুযায়ী)</label>
+          <div class="pay-amount mono" id="payAmount" data-amount="${initialPayTotal}">₹${initialPayTotal}</div>
+        </div>
+      </div>
+      ${paymentFooterHTML(payType, initialPayTotal)}`;
+  }
+
+  const reqs = DATA.paymentRequests || [];
+  const pend = reqs.filter(p=>p.stage==='collector' || p.stage==='admin');
+  let doneList = reqs.filter(p=>p.stage==='done' || p.stage==='rejected');
+  // an ordinary member only sees their own history; the collector & admin see everyone's
+  if(!canApprove() && memberSession){
+    doneList = doneList.filter(p=>p.member.toLowerCase() === memberSession.userId.toLowerCase());
+  }
+  doneList = doneList.slice(-15).reverse();
+
+  const tag = p => `<span class="pay-tag ${p.typeLabel==='ফাইন'?'fine':(p.typeLabel==='মাসিক জমা'?'':'loan')}">${p.typeLabel}</span>`;
+
+  let apprCard = '';
+  if(canApprove()){
+    let pendBox;
+    if(!pend.length){
+      pendBox = `<p class="hint-text">এখন কোনো অনুরোধ অপেক্ষায় নেই।</p>`;
+    } else {
+      pendBox = `
+        <div class="table-scroll" style="max-height:none;"><table>
+          <thead><tr><th>সদস্য</th><th>ধরন</th><th>মাস</th><th>টাকা</th><th>রসিদ</th><th>অবস্থা</th><th>অনুমোদন / বাতিল</th></tr></thead>
+          <tbody>${pend.map(p=>{
+            const stage = p.stage;
+            const mine = stage === 'collector' ? isCollector() : isAdminMember();
+            let btns;
+            if(!mine){
+              btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
+            } else if(stage === 'admin' && !isEditing()){
+              btns = `<span class="hint-text">অনুমোদন করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
+            } else {
+              btns = `<div class="btn-pair">
+                <button class="approve-btn" onclick="approvePaymentClick(event,'${p.token}','${stage}')">✅ অনুমোদন</button>
+                <button class="reject-btn" onclick="rejectPaymentClick(event,'${p.token}','${stage}')">❌ বাতিল</button>
+              </div>`;
+            }
+            const receipt = p.receiptUrl
+              ? `<a href="${p.receiptUrl}" target="_blank" rel="noopener" class="receipt-link">🧾 দেখুন</a>`
+              : `<span class="hint-text">নেই</span>`;
+            return `<tr><td>${p.member}</td><td>${tag(p)}</td><td>${p.monthLabel}</td><td class="mono">${moneyInt(p.amount)}</td><td>${receipt}</td><td>${p.status}</td><td>${btns}</td></tr>`;
+          }).join('')}</tbody>
+        </table></div>`;
+    }
+    apprCard = `
+      <div class="card">
+        <div class="card-head">
+          <h2>🛡️ অনুমোদন ও বাতিল${pend.length?' ('+pend.length+')':''}</h2>
+          <div class="hint">এই অংশটি শুধু ${DATA.collectorName||''} ও ${ADMIN_NAME}-ই দেখতে পান। ভুল পেমেন্ট হলে <strong>❌ বাতিল</strong> করুন।</div>
+        </div>
+        ${pendBox}
+        <div class="msg-err" id="apprErr" hidden></div>
+        <div class="msg-ok" id="apprOk" hidden></div>
+      </div>`;
+  }
+
+  let myPendBox = '';
+  if(!canApprove() && memberSession){
+    const myPend = pend.filter(p=>p.member.toLowerCase() === memberSession.userId.toLowerCase());
+    if(myPend.length){
+      myPendBox = `
+        <h4 class="pay-subhead">আপনার অপেক্ষমাণ অনুরোধ (${myPend.length})</h4>
+        <p class="hint-text" style="margin:0 0 .7rem;">পেমেন্টের স্ক্রিনশট যুক্ত করলে ${DATA.upiName||'সংগ্রাহক'} দ্রুত ও নিশ্চিত হয়ে অনুমোদন করতে পারবেন।</p>
+        <div class="table-scroll" style="max-height:none;"><table>
+          <thead><tr><th>ধরন</th><th>মাস</th><th>টাকা</th><th>অবস্থা</th><th>রসিদ</th></tr></thead>
+          <tbody>${myPend.map(p=>{
+            const receiptCell = p.receiptUrl
+              ? `<a href="${p.receiptUrl}" target="_blank" rel="noopener" class="receipt-link">🧾 দেখুন</a>`
+              : `<button type="button" class="copy-btn" onclick="document.getElementById('rcpt-${p.token}').click()">📎 যুক্ত করুন</button>
+                 <input type="file" accept="image/*,application/pdf" id="rcpt-${p.token}" hidden
+                        onchange="onReceiptFileChosen(event,'${p.token}')">`;
+            return `<tr><td>${tag(p)}</td><td>${p.monthLabel}</td><td class="mono">${moneyInt(p.amount)}</td><td>${p.status}</td><td>${receiptCell}</td></tr>`;
+          }).join('')}</tbody>
+        </table></div>
+        <div class="msg-err" id="rcptErr" hidden></div>`;
+    }
+  }
+
+  let histBox = '';
+  if(doneList.length){
+    histBox = `
+      <div class="card">
+        <div class="card-head">
+          <h2>🧾 ${canApprove() ? 'সাম্প্রতিক পেমেন্টের ইতিহাস' : 'আপনার পেমেন্টের ইতিহাস'}</h2>
+          <div class="hint">শেষ ${doneList.length}টি নিষ্পত্তি হওয়া অনুরোধ</div>
+        </div>
+        <div class="table-scroll" style="max-height:340px;"><table>
+          <thead><tr><th>সদস্য</th><th>ধরন</th><th>মাস</th><th>টাকা</th><th>ফলাফল</th></tr></thead>
+          <tbody>${doneList.map(p=>`<tr><td>${p.member}</td><td>${tag(p)}</td><td>${p.monthLabel}</td><td class="mono">${moneyInt(p.amount)}</td><td>${p.status}</td></tr>`).join('')}</tbody>
+        </table></div>
+      </div>`;
+  }
+
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <h2>💰 অনলাইন পেমেন্ট</h2>
+        <div class="hint">টাকা যাবে <strong>${DATA.upiName||''}</strong>-এর UPI-তে। ${DATA.upiName||''} ও Prasun Jyoti — দুজনের অনুমোদনের পরেই শিটে বসবে।</div>
+      </div>
+      ${claimBox}
+      ${myPendBox}
+    </div>
+    ${apprCard}
+    ${histBox}`;
+
+  if(mine) renderPayQr(payType, qrAmount);
+}
+
+// Builds the upi://pay link. Shared by the QR code and the "open app" button so
+// both always point at the exact same request. `tr` is a fresh reference id each
+// time — some UPI apps flag links that lack one as looking auto-generated/unsafe.
+function buildUpiLink(type, amount){
+  const checked = Array.from(document.querySelectorAll('.pay-month-cb:checked, .fine-month-cb:checked'));
+  const label = checked.map(cb=>cb.dataset.label).join(', ');
+  return 'upi://pay?pa=' + encodeURIComponent(DATA.upiId)
+    + '&pn=' + encodeURIComponent(DATA.upiName||'')
+    + '&am=' + encodeURIComponent(amount)
+    + '&cu=INR'
+    + '&tr=URF' + Date.now()
+    + '&tn=' + encodeURIComponent('URF ' + (memberSession ? memberSession.userId : '') + ' ' + label);
+}
+
+// Renders the scannable QR for the current type/amount. A QR is not a browser
+// redirect, so GPay's "declined for security reasons" block on upi:// deep
+// links opened from a mobile browser does not apply to it — scanning works
+// even when the button below does not.
+let payQrObj = null;
+function renderPayQr(type, amount){
+  const box = document.getElementById('payQr');
+  if(!box || typeof QRCode === 'undefined') return;
+  box.innerHTML = '';
+  payQrObj = new QRCode(box, {
+    text: buildUpiLink(type, amount),
+    width: 168, height: 168,
+    colorDark: '#1E4A35', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
+function copyUpiId(ev){
+  const id = (DATA && DATA.upiId) || '';
+  const btn = ev.target;
+  const done = ()=>{ const old = btn.textContent; btn.textContent = '✅ কপি হয়েছে'; setTimeout(()=>{ btn.textContent = old; }, 1600); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(id).then(done).catch(()=>{ prompt('UPI ID কপি করুন:', id); });
+  } else {
+    prompt('UPI ID কপি করুন:', id);
+  }
+}
+
+function openUpiApp(type){
+  const errBox = document.getElementById('payErr');
+  if(!DATA.upiId || DATA.upiId === 'PASTE_UPI_ID_HERE'){
+    errBox.textContent = 'UPI আইডি এখনো সেট করা হয়নি — Prasun Jyoti-কে জানান।';
+    errBox.hidden = false;
+    return;
+  }
+  const amount = document.getElementById('payAmount').dataset.amount;
+  window.location.href = buildUpiLink(type, amount);
+}
+
+// Restores the two-step flow — open the app to pay, then separately confirm —
+// but the confirm step now REQUIRES a screenshot of the payment; a claim with
+// no receipt is refused both here and again on the server (submitPaymentClaim),
+// since a website still has no way to check a upi:// payment actually succeeded.
+async function confirmPaymentClaim(ev, type){
+  const errBox = document.getElementById('payErr');
+  const okBox = document.getElementById('payOk');
+  errBox.hidden = true; okBox.hidden = true;
+
+  const isFine = type === 'fine';
+  let monthLabel, monthIndexes = [];
+  if(isFine){
+    const checkedMonths = Array.from(document.querySelectorAll('.fine-month-cb:checked')).map(cb=>cb.dataset.label);
+    const subTypeLabel = fineSubType === 'loan' ? 'ঋণের সুদের ফাইন' : 'মাসিক জমার ফাইন';
+    monthLabel = subTypeLabel + (checkedMonths.length ? ' — ' + checkedMonths.join(', ') : '');
+  } else {
+    const checkedBoxes = Array.from(document.querySelectorAll('.pay-month-cb:checked'));
+    if(!checkedBoxes.length){
+      errBox.textContent = 'অন্তত একটা মাস সিলেক্ট করুন।';
+      errBox.hidden = false;
+      return;
+    }
+    monthIndexes = checkedBoxes.map(cb=>Number(cb.dataset.idx));
+    monthLabel = checkedBoxes.map(cb=>cb.dataset.label).join(', ');
+  }
+  const typeLabel = isFine ? 'ফাইন' : (type === 'loan' ? 'চলতি ঋণের সুদ' : 'মাসিক জমা');
+  if(!isFine){
+    const already = (DATA.paymentRequests||[]).some(p=>
+      p.member.toLowerCase() === memberSession.userId.toLowerCase() &&
+      p.typeLabel === typeLabel && p.monthLabel === monthLabel &&
+      (p.stage === 'collector' || p.stage === 'admin'));
+    if(already){
+      errBox.textContent = 'এই মাসগুলোর জন্য আপনার একটা অনুরোধ ইতিমধ্যে অনুমোদনের অপেক্ষায় আছে — নতুন করে পাঠানোর দরকার নেই।';
+      errBox.hidden = false;
+      return;
+    }
+  }
+  const fileInput = document.getElementById('payReceiptInput');
+  const file = fileInput.files && fileInput.files[0];
+  if(!file){
+    errBox.textContent = 'পেমেন্টের স্ক্রিনশট ছাড়া দাবি জমা নেওয়া হবে না — আগে উপরে থেকে ছবি বেছে নিন।';
+    errBox.hidden = false;
+    return;
+  }
+
+  const amount = Number(document.getElementById('payAmount').dataset.amount);
+  if(isFine && (!amount || amount <= 0)){
+    errBox.textContent = 'সঠিক পরিমাণ দিন।';
+    errBox.hidden = false;
+    return;
+  }
+  if(!confirm('আপনি নিশ্চিত যে ₹' + amount + ' পাঠিয়েছেন? রসিদসহ অনুমোদনের জন্য অনুরোধ যাবে।')) return;
+
+  const btn = ev.target;
+  btn.disabled = true;
+  const oldLabel = btn.textContent;
+  btn.textContent = 'রসিদ পাঠানো হচ্ছে...';
+  try{
+    const receipt = await compressReceiptFile(file);
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'submitPaymentClaim', userId:memberSession.userId, pin:memberSession.pin,
+                            type, monthIndexes, note: monthLabel, amount, receiptData: receipt.data, receiptMime: receipt.mime})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      errBox.textContent = json.error || 'পাঠানো যায়নি, আবার চেষ্টা করুন।';
+      errBox.hidden = false;
+      return;
+    }
+    okBox.textContent = json.message || 'জানানো হয়েছে!';
+    okBox.hidden = false;
+    fileInput.value = '';
+    await loadData(true);
+  }catch(err){
+    errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।';
+    errBox.hidden = false;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = oldLabel;
+  }
+}
+
+// Shrinks a phone-camera photo before it goes over the network — a raw
+// screenshot can be several MB, which is slow on mobile data and wasteful to
+// store. 1000px wide at JPEG quality 0.72 keeps the receipt readable at a
+// fraction of the size. A PDF receipt is passed through as-is (there's
+// nothing to downscale) with its own mime type kept intact.
+function compressReceiptFile(file){
+  if(file.type === 'application/pdf'){
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onerror = ()=>reject(new Error('read failed'));
+      reader.onload = ()=>{
+        resolve({ data: reader.result.slice(reader.result.indexOf(',') + 1), mime: 'application/pdf' });
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onerror = ()=>reject(new Error('read failed'));
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onerror = ()=>reject(new Error('decode failed'));
+      img.onload = ()=>{
+        const scale = Math.min(1, 1000 / img.width);
+        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+        resolve({ data: dataUrl.slice(dataUrl.indexOf(',') + 1), mime: 'image/jpeg' });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function onReceiptFileChosen(ev, token){
+  const input = ev.target;
+  const file = input.files && input.files[0];
+  if(!file) return;
+  // The success path re-renders the page (to show the new "🧾 দেখুন" link),
+  // which would instantly wipe a local message div — so success uses the
+  // persistent top-bar indicator instead; only the pre-render error stays local.
+  const errBox = document.getElementById('rcptErr');
+  if(errBox) errBox.hidden = true;
+  flashSaved('রসিদ পাঠানো হচ্ছে...', false);
+  try{
+    const receipt = await compressReceiptFile(file);
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'attachPaymentReceipt', token, userId:memberSession.userId, pin:memberSession.pin,
+                            receiptData: receipt.data, receiptMime: receipt.mime})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      flashSaved(json.error || 'রসিদ যুক্ত করা যায়নি', true);
+      if(errBox){ errBox.textContent = json.error || 'রসিদ যুক্ত করা যায়নি।'; errBox.hidden = false; }
+      return;
+    }
+    if(json.data) DATA = json.data;
+    flashSaved('রসিদ যুক্ত হয়েছে', false);
+    renderPage(currentPage);
+  }catch(err){
+    flashSaved('ছবি পাঠানো যায়নি', true);
+    if(errBox){ errBox.textContent = 'ছবি পাঠানো যায়নি, আবার চেষ্টা করুন।'; errBox.hidden = false; }
+  }finally{
+    input.value = '';
+  }
+}
+
+async function approvePaymentClick(ev, token, stage){
+  if(!confirm('এই পেমেন্টটি অনুমোদন করবেন?')) return;
+  await postApprovalAction(ev, {action:'approvePayment', token, stage}, stage, '✅ অনুমোদন', 'অনুমোদন হয়নি।');
+}
+
+async function rejectPaymentClick(ev, token, stage){
+  const reason = prompt('কেন বাতিল করছেন? (কারণ লিখুন — খালি রাখলেও চলবে)\n\nOK চাপলে অনুরোধটি বাতিল হয়ে যাবে।');
+  if(reason === null) return;
+  await postApprovalAction(ev, {action:'rejectPayment', token, stage, reason: reason.trim()}, stage, '❌ বাতিল', 'বাতিল করা যায়নি।');
+}
+
+async function postApprovalAction(ev, body, stage, btnLabel, failMsg){
+  const errBox = document.getElementById('apprErr');
+  const okBox = document.getElementById('apprOk');
+  if(errBox) errBox.hidden = true;
+  if(okBox) okBox.hidden = true;
+  if(stage === 'collector'){
+    if(!memberSession){
+      if(errBox){ errBox.textContent = 'আগে নিজের ID দিয়ে লগইন করুন।'; errBox.hidden = false; }
+      return;
+    }
+    body.userId = memberSession.userId;
+    body.pin = memberSession.pin;
+  } else {
+    body.pin = editPin;
+  }
+  const btn = ev.target;
+  btn.disabled = true;
+  btn.textContent = 'হচ্ছে...';
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify(body)
+    });
+    const json = await res.json();
+    if(!json.ok){
+      if(errBox){ errBox.textContent = json.error || failMsg; errBox.hidden = false; }
+      btn.disabled = false;
+      btn.textContent = btnLabel;
+      return;
+    }
+    if(json.data) DATA = json.data;
+    flashSaved(json.message || 'হয়ে গেছে', false);
+    renderPage(currentPage);
+  }catch(err){
+    if(errBox){ errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।'; errBox.hidden = false; }
+    btn.disabled = false;
+    btn.textContent = btnLabel;
+  }
+}
+
+/* ================= new loan request (ঋণের আবেদন page) ================= */
+// A pending request = one already in flight for this member (any of the three
+// approval stages) — used both to block a second simultaneous request and to
+// show that request's own status/action row.
+function myActiveLoanRequest(){
+  if(!memberSession || !DATA) return null;
+  return (DATA.loanRequests||[]).find(r=>
+    r.member.toLowerCase()===memberSession.userId.toLowerCase() &&
+    ['collector','ack','admin'].includes(r.stage)) || null;
+}
+
+function renderLoanRequest(){
+  const rules = DATA.loanRules || {percent:60, cap:25000, interestPercent:1};
+  const availableBalance = (DATA.fundSummary && DATA.fundSummary.availableBalance) || 0;
+  const maxEligible = Math.max(0, Math.floor(Math.min(availableBalance * rules.percent/100, rules.cap)));
+  const hasActiveLoan = !!myActiveLoan();
+  const myPending = myActiveLoanRequest();
+
+  let formBox;
+  if(!memberSession){
+    formBox = `<p class="hint-text">ঋণের আবেদন করতে সাইডবারের <strong>👤 ব্যক্তিগত তথ্য দেখুন</strong>-এ নিজের User ID ও Password দিয়ে লগইন করুন।</p>`;
+  } else if(hasActiveLoan){
+    formBox = `<p class="hint-text">আপনার একটি চলতি ঋণ চলছে — সেটি শেষ না হওয়া পর্যন্ত নতুন আবেদন করা যাবে না।</p>`;
+  } else if(myPending){
+    formBox = `<p class="hint-text">আপনার একটি ঋণের আবেদন প্রক্রিয়াধীন আছে — নিচে "আপনার ঋণের আবেদন"-এ দেখুন।</p>`;
+  } else if(maxEligible <= 0){
+    formBox = `<p class="hint-text">এই মুহূর্তে তহবিলে যথেষ্ট Available Balance না থাকায় নতুন ঋণ দেওয়া সম্ভব নয়।</p>`;
+  } else {
+    formBox = `
+      <div class="pay-row">
+        <div class="pay-field">
+          <label class="field-label" for="loanAmountInput">চাওয়া টাকার পরিমাণ</label>
+          <input type="number" id="loanAmountInput" class="pay-select" value="${maxEligible}" min="1" max="${maxEligible}" step="1">
+        </div>
+      </div>
+      <p class="hint-text" style="margin:.3rem 0 1rem;">সর্বোচ্চ <strong>${moneyInt(maxEligible)}</strong> — Available Balance ${moneyInt(availableBalance)}-এর ${rules.percent}%, সর্বোচ্চ ${moneyInt(rules.cap)}। কম নিতে চাইলে বক্সের সংখ্যাটা বদলে দিন।</p>
+      <div class="pay-actions">
+        <button class="pay-btn claim" onclick="submitLoanRequestClick(event)">📨 অনুরোধ পাঠান</button>
+      </div>
+      <div class="msg-err" id="loanErr" hidden></div>`;
+  }
+
+  const reqs = DATA.loanRequests || [];
+
+  let myBox = '';
+  if(memberSession){
+    const mine = reqs.filter(r=>r.member.toLowerCase()===memberSession.userId.toLowerCase());
+    if(mine.length){
+      myBox = `
+        <h4 class="pay-subhead">আপনার ঋণের আবেদন</h4>
+        <div class="table-scroll" style="max-height:none;"><table>
+          <thead><tr><th>টাকা</th><th>তারিখ</th><th>অবস্থা</th><th>কাজ</th></tr></thead>
+          <tbody>${mine.map(r=>{
+            const action = r.stage === 'ack'
+              ? `<div class="btn-pair">
+                  <button class="approve-btn" onclick="loanAckClick(event,'${r.token}')">✅ টাকা পেয়েছি</button>
+                  <button class="reject-btn" onclick="loanDisputeClick(event,'${r.token}')">❌ এখনো পাইনি</button>
+                </div>`
+              : `<span class="hint-text">—</span>`;
+            return `<tr><td class="mono">${moneyInt(r.amount)}</td><td>${r.askedAt}</td><td>${r.status}</td><td>${action}</td></tr>`;
+          }).join('')}</tbody>
+        </table></div>`;
+    }
+  }
+
+  const pend = reqs.filter(r=>['collector','ack','admin'].includes(r.stage));
+  let apprCard = '';
+  if(canApprove()){
+    let pendBox;
+    if(!pend.length){
+      pendBox = `<p class="hint-text">এখন কোনো ঋণের আবেদন অপেক্ষায় নেই।</p>`;
+    } else {
+      pendBox = `
+        <div class="table-scroll" style="max-height:none;"><table>
+          <thead><tr><th>সদস্য</th><th>টাকা</th><th>তারিখ</th><th>অবস্থা</th><th>কাজ</th></tr></thead>
+          <tbody>${pend.map(r=>{
+            let btns;
+            if(r.stage === 'collector'){
+              btns = isCollector()
+                ? `<div class="btn-pair">
+                    <button class="approve-btn" onclick="loanDisburseClick(event,'${r.token}')">✅ টাকা দেওয়া হয়েছে</button>
+                    <button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button>
+                  </div>`
+                : `<span class="hint-text">${DATA.collectorName||''}-এর অপেক্ষায়</span>`;
+            } else if(r.stage === 'ack'){
+              btns = (isAdminMember() && isEditing())
+                ? `<div class="btn-pair"><span class="hint-text">স্বীকৃতির অপেক্ষায়</span><button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button></div>`
+                : `<span class="hint-text">সদস্যের স্বীকৃতির অপেক্ষায়</span>`;
+            } else { // 'admin' stage — also covers a dispute flagged by the member
+              if(!isAdminMember()){
+                btns = `<span class="hint-text">${ADMIN_NAME}-র অপেক্ষায়</span>`;
+              } else if(!isEditing()){
+                btns = `<span class="hint-text">চূড়ান্ত করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
+              } else {
+                btns = `<div class="btn-pair">
+                  <button class="approve-btn" onclick="loanFinalizeClick(event,'${r.token}')">✅ চূড়ান্ত করুন</button>
+                  <button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button>
+                </div>`;
+              }
+            }
+            const disputed = /বিরোধ/.test(r.status);
+            return `<tr${disputed?' style="background:#FBEFE0;"':''}><td>${r.member}</td><td class="mono">${moneyInt(r.amount)}</td><td>${r.askedAt}</td><td>${r.status}</td><td>${btns}</td></tr>`;
+          }).join('')}</tbody>
+        </table></div>`;
+    }
+    apprCard = `
+      <div class="card">
+        <div class="card-head">
+          <h2>🏦 ঋণ অনুমোদন${pend.length?' ('+pend.length+')':''}</h2>
+          <div class="hint">এই অংশটি শুধু ${DATA.collectorName||''} ও ${ADMIN_NAME}-ই দেখতে পান।</div>
+        </div>
+        ${pendBox}
+        <div class="msg-err" id="loanApprErr" hidden></div>
+      </div>`;
+  }
+
+  let doneList = reqs.filter(r=>r.stage==='done' || r.stage==='rejected');
+  if(!canApprove() && memberSession){
+    doneList = doneList.filter(r=>r.member.toLowerCase()===memberSession.userId.toLowerCase());
+  }
+  doneList = doneList.slice(-15).reverse();
+  let histBox = '';
+  if(doneList.length){
+    histBox = `
+      <div class="card">
+        <div class="card-head">
+          <h2>🧾 ${canApprove() ? 'সাম্প্রতিক ঋণের ইতিহাস' : 'আপনার ঋণের ইতিহাস'}</h2>
+        </div>
+        <div class="table-scroll" style="max-height:340px;"><table>
+          <thead><tr><th>সদস্য</th><th>টাকা</th><th>তারিখ</th><th>ফলাফল</th></tr></thead>
+          <tbody>${doneList.map(r=>`<tr><td>${r.member}</td><td class="mono">${moneyInt(r.amount)}</td><td>${r.askedAt}</td><td>${r.status}</td></tr>`).join('')}</tbody>
+        </table></div>
+      </div>`;
+  }
+
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <h2>🏦 নতুন ঋণের আবেদন</h2>
+        <div class="hint">Available Balance-এর ${rules.percent}%, সর্বোচ্চ ${moneyInt(rules.cap)} — এটাই সর্বোচ্চ ঋণ। সুদ মাসিক ${rules.interestPercent}%।</div>
+      </div>
+      ${formBox}
+      ${myBox}
+    </div>
+    ${apprCard}
+    ${histBox}`;
+}
+
+async function submitLoanRequestClick(ev){
+  const errBox = document.getElementById('loanErr');
+  errBox.hidden = true;
+  const amount = Number(document.getElementById('loanAmountInput').value);
+  if(!amount || amount <= 0){
+    errBox.textContent = 'সঠিক পরিমাণ দিন।';
+    errBox.hidden = false;
+    return;
+  }
+  if(!confirm('আপনি কি নিশ্চিত ' + moneyInt(amount) + ' ঋণের আবেদন পাঠাতে চান?')) return;
+  const btn = ev.target;
+  btn.disabled = true;
+  const oldLabel = btn.textContent;
+  btn.textContent = 'পাঠানো হচ্ছে...';
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'submitLoanRequest', userId:memberSession.userId, pin:memberSession.pin, amount})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      errBox.textContent = json.error || 'পাঠানো যায়নি।';
+      errBox.hidden = false;
+      return;
+    }
+    flashSaved(json.message || 'অনুরোধ পাঠানো হয়েছে', false);
+    await loadData(true);
+  }catch(err){
+    errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।';
+    errBox.hidden = false;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = oldLabel;
+  }
+}
+
+async function loanAckClick(ev, token){
+  // Shown verbatim so the member reads and knowingly agrees to it before
+  // it gets written into the sheet and broadcast to the whole group.
+  const pledge = 'হ্যাঁ, আমি আমার চাহিদামতো টাকা লোন পেয়েছি। আমি কথা দিচ্ছি, আমি এই টাকা গ্রুপের নিয়ম অনুযায়ী সুদ দিতে বাধ্য থাকব।';
+  if(!confirm(pledge + '\n\n— এই কথাটা কি আপনি নিশ্চিত করছেন? OK চাপলে এই স্বীকৃতি সবার কাছে জানানো হবে।')) return;
+  await postLoanAction(ev, {action:'acknowledgeLoan', token, userId:memberSession.userId, pin:memberSession.pin}, '✅ টাকা পেয়েছি', 'স্বীকৃতি দেওয়া যায়নি।');
+}
+async function loanDisputeClick(ev, token){
+  if(!confirm('আপনি কি নিশ্চিত যে টাকা এখনো পাননি? ' + (DATA.collectorName||'সংগ্রাহক') + ' ও Prasun Jyoti-কে জানানো হবে।')) return;
+  await postLoanAction(ev, {action:'disputeLoan', token, userId:memberSession.userId, pin:memberSession.pin}, '❌ এখনো পাইনি', 'জানানো যায়নি।');
+}
+async function loanDisburseClick(ev, token){
+  if(!confirm('আপনি কি সদস্যকে টাকা দিয়ে দিয়েছেন?')) return;
+  await postLoanAction(ev, {action:'disburseLoan', token, userId:memberSession.userId, pin:memberSession.pin}, '✅ টাকা দেওয়া হয়েছে', 'নিশ্চিত করা যায়নি।');
+}
+async function loanFinalizeClick(ev, token){
+  if(!confirm('এই ঋণটি এখন সরাসরি Google Sheet-এ বসিয়ে দেওয়া হবে। নিশ্চিত?')) return;
+  await postLoanAction(ev, {action:'finalizeLoan', token, pin:editPin}, '✅ চূড়ান্ত করুন', 'চূড়ান্ত করা যায়নি।');
+}
+async function loanRejectClick(ev, token){
+  const reason = prompt('কেন বাতিল করছেন? (কারণ লিখুন — খালি রাখলেও চলবে)');
+  if(reason === null) return;
+  const body = {action:'rejectLoan', token, reason: reason.trim()};
+  if(isCollector() && !isAdminMember()){ body.userId = memberSession.userId; body.pin = memberSession.pin; }
+  else { body.pin = editPin; }
+  await postLoanAction(ev, body, '❌ বাতিল', 'বাতিল করা যায়নি।');
+}
+
+async function postLoanAction(ev, body, btnLabel, failMsg){
+  // whichever section of the page the button lives in has its own error box
+  const errBox = document.getElementById('loanApprErr') || document.getElementById('loanErr');
+  if(errBox) errBox.hidden = true;
+  const btn = ev.target;
+  btn.disabled = true;
+  const oldLabel = btn.textContent;
+  btn.textContent = 'হচ্ছে...';
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify(body)
+    });
+    const json = await res.json();
+    if(!json.ok){
+      if(errBox){ errBox.textContent = json.error || failMsg; errBox.hidden = false; }
+      btn.disabled = false;
+      btn.textContent = btnLabel;
+      return;
+    }
+    if(json.data) DATA = json.data;
+    flashSaved(json.message || 'হয়ে গেছে', false);
+    renderPage(currentPage);
+  }catch(err){
+    if(errBox){ errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।'; errBox.hidden = false; }
+    btn.disabled = false;
+    btn.textContent = btnLabel;
+  }
+}
+
+/* ================= helpers ================= */
+function money(n){ if(n===null||n===undefined) return "—"; return "₹" + Number(n).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function moneyInt(n){ if(n===null||n===undefined) return "—"; return "₹" + Number(n).toLocaleString('en-IN'); }
+function initialsOf(name){
+  const parts = name.trim().split(/\s+/);
+  let ini = parts[0] ? parts[0][0] : "?";
+  if(parts.length>1) ini += parts[parts.length-1][0];
+  return ini.toUpperCase();
+}
+function colorFromName(name){
+  const colors = ['#2E6B4F','#B8892B','#7A1F2B','#1E4A35','#4A6FA5','#8B5E3C','#3E7C5A','#A2632F'];
+  let hash = 0;
+  for(let i=0;i<name.length;i++) hash = name.charCodeAt(i) + ((hash<<5)-hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+function avatarUrl(name){
+  const ini = initialsOf(name), bg = colorFromName(name);
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">'
+    + '<rect width="64" height="64" rx="32" fill="' + bg + '"/>'
+    + '<text x="32" y="41" font-family="Arial, sans-serif" font-size="24" fill="#ffffff" text-anchor="middle" font-weight="700">' + ini + '</text>'
+    + '</svg>';
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+}
+function parseDMY(s){
+  const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  const parts = String(s).split('-');
+  if(parts.length<3) return new Date(0);
+  return new Date(parseInt(parts[2]), months[parts[1]] !== undefined ? months[parts[1]] : 0, parseInt(parts[0]));
+}
+function loanStatus(loan){
+  const today = new Date();
+  const dueObjs = loan.dueDates.map(parseDMY);
+  const passedCount = dueObjs.filter(d=>d<=today).length;
+  const overdue = passedCount > loan.monthsPaid;
+  const lastPaidDate = loan.monthsPaid>0 ? loan.dueDates[loan.monthsPaid-1] : null;
+  return {overdue, lastPaidDate, tenureMonths: loan.dueDates.length || 12};
+}
+function rowTotal(m){ return m.pay.reduce((a,b)=>a+b,0); }
+
+/* ================= nav ================= */
+const pages = [
+  {id:"overview", label:"Overview"},
+  {id:"members",  label:"সদস্য তালিকা"},
+  {id:"contrib",  label:"মাসিক জমা"},
+  {id:"loans",    label:"ঋণ হিসাব"},
+  {id:"payment",  label:"পেমেন্ট"},
+  {id:"loanrequest", label:"ঋণের আবেদন"},
+  {id:"fine",     label:"ফাইন"},
+  {id:"rules",    label:"নিয়মাবলী"},
+  {id:"birthdays",label:"জন্মদিন"},
+  {id:"history",  label:"বছরের ইতিহাস"}
+];
+const bnNum = ["০১","০২","০৩","০৪","০৫","০৬","০৭","০৮","০৯","১০"];
+const pageTitles = {overview:"Overview", members:"সদস্য তালিকা", contrib:"মাসিক জমা", loans:"ঋণ হিসাব", payment:"পেমেন্ট", loanrequest:"ঋণের আবেদন", fine:"ফাইন", rules:"নিয়মাবলী", birthdays:"জন্মদিন", history:"বছরের ইতিহাস"};
+const navlist = document.getElementById('navlist');
+navlist.innerHTML = pages.map((p,i)=> `<button data-page="${p.id}" class="${i===0?'active':''}"><span class="n">${bnNum[i]}</span>${p.label}</button>`).join('');
+navlist.addEventListener('click', e=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  navlist.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentPage = btn.dataset.page;
+  renderPage(currentPage);
+});
+
+/* ================= charts ================= */
+function svgBarChart(labels, series){
+  const w=620,h=210,padL=48,padB=26,padT=10,padR=10;
+  const max = Math.max(1,...series)*1.15;
+  const gap = (w-padL-padR)/labels.length;
+  const barW = gap*0.6;
+  let grid="",bars="",lab="";
+  for(let i=0;i<=4;i++){
+    const y=padT+(h-padT-padB)*(1-i/4); const val=Math.round(max*i/4);
+    grid+=`<line x1="${padL}" y1="${y}" x2="${w-padR}" y2="${y}" stroke="#E4DCC8" stroke-width="1"/>`;
+    grid+=`<text x="${padL-6}" y="${y+4}" font-size="10" text-anchor="end">${val>=1000?(val/1000)+'k':val}</text>`;
+  }
+  series.forEach((v,i)=>{
+    const bh=(h-padT-padB)*(v/max), x=padL+gap*i+(gap-barW)/2, y=h-padB-bh;
+    bars+=`<rect x="${x}" y="${y}" width="${barW}" height="${bh}" fill="#2E6B4F" rx="3"/>`;
+    lab+=`<text x="${x+barW/2}" y="${h-padB+15}" font-size="9.5" text-anchor="middle">${labels[i]}</text>`;
+  });
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;">${grid}${bars}${lab}</svg>`;
+}
+function svgLineChart(labels, series){
+  const w=620,h=210,padL=58,padB=26,padT=10,padR=10;
+  const max=Math.max(1,...series)*1.15;
+  const stepX=(w-padL-padR)/Math.max(1,labels.length-1);
+  let grid="",pts="",dots="",lab="";
+  for(let i=0;i<=4;i++){
+    const y=padT+(h-padT-padB)*(1-i/4), val=Math.round(max*i/4);
+    grid+=`<line x1="${padL}" y1="${y}" x2="${w-padR}" y2="${y}" stroke="#E4DCC8" stroke-width="1"/>`;
+    grid+=`<text x="${padL-6}" y="${y+4}" font-size="10" text-anchor="end">${val>=1000?(val/1000)+'k':val}</text>`;
+  }
+  series.forEach((v,i)=>{
+    const x=padL+stepX*i, y=h-padB-(h-padT-padB)*(v/max);
+    pts+=(i===0?"M":"L")+x+","+y+" ";
+    dots+=`<circle cx="${x}" cy="${y}" r="3.5" fill="#B8892B"/>`;
+    lab+=`<text x="${x}" y="${h-padB+15}" font-size="10" text-anchor="middle">${labels[i]}</text>`;
+  });
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;">${grid}<path d="${pts}" fill="none" stroke="#B8892B" stroke-width="2.5"/>${dots}${lab}</svg>`;
+}
+
+/* ================= page renderers ================= */
+const pageTitle = document.getElementById('pageTitle');
+const pageBody = document.getElementById('pageBody');
+
+function renderOverview(){
+  const fs = DATA.fundSummary;
+  const monthlyTotals = DATA.months.map((_,i)=> DATA.contributions.reduce((s,m)=>s+m.pay[i],0));
+  pageBody.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="k">মোট ব্যালেন্স</div><div class="v gold mono">${money(fs.totalBalance)}</div></div>
+      <div class="stat"><div class="k">হাতে থাকা ব্যালেন্স</div><div class="v mono">${money(fs.availableBalance)}</div></div>
+      <div class="stat"><div class="k">মোট সদস্য</div><div class="v mono">${DATA.contributions.length}</div></div>
+      <div class="stat"><div class="k">${DATA.year}-এ চাঁদা সংগ্রহ</div><div class="v mono">${moneyInt(fs.totalCollectedThisYear)}</div></div>
+      <div class="stat"><div class="k">${DATA.year}-এ চলতি ঋণ</div><div class="v gold mono">${moneyInt(DATA.activeLoans.reduce((s,l)=>s+l.amount,0))}</div></div>
+      <div class="stat"><div class="k">${DATA.year}-এ সুদ আয়</div><div class="v mono">${moneyInt(fs.earningsInterest)}</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card chart-box">
+        <div class="cap">মাসিক চাঁদা সংগ্রহ — ${DATA.year}</div>
+        ${svgBarChart(DATA.months.map(m=>m.split('-')[0]), monthlyTotals)}
+      </div>
+      <div class="card chart-box">
+        <div class="cap">ক্রমসঞ্চিত চাঁদা — ২০২১–${DATA.year}</div>
+        ${svgLineChart(DATA.yearlySummary.map(y=>y.year), DATA.yearlySummary.map(y=>y.cumulativeCollection))}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>আমাদের ওয়েবসাইট</h2></div>
+      <p class="hint-text" style="margin:0 0 .9rem;">সদস্যদের তালিকা, ছবি ও আরও তথ্যের জন্য Unique Rural Fund-এর ওয়েবসাইটে যান।</p>
+      <a href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener" class="website-link-btn">🔗 ওয়েবসাইট খুলুন</a>
+    </div>
+  `;
+}
+
+function loanByName(name){
+  return DATA.activeLoans.find(l=>l.name===name);
+}
+function mobileByName(name){
+  const b = DATA.birthdays && DATA.birthdays.find(x=>x.name.toLowerCase()===name.toLowerCase());
+  return (b && b.mobile) || '—';
+}
+function renderMembers(){
+  const rows = DATA.contributions.map(m=>{
+    const loan = loanByName(m.name);
+    let loanCell;
+    if(loan){
+      const st = loanStatus(loan);
+      loanCell = `<span class="pill-badge ${st.overdue?'red':''}">${moneyInt(loan.amount)}</span> <span class="mono" style="font-size:.78rem; color:var(--ink-soft);">শেষ ${loan.closingDate}</span>`;
+    } else {
+      loanCell = `<span class="pill-badge grey">নেই</span>`;
+    }
+    const fallback = avatarUrl(m.name);
+    const imgSrc = (DATA.photos && DATA.photos[m.name]) || fallback;
+    return `<tr data-name="${m.name.toLowerCase()}">
+      <td><img class="id-photo" src="${imgSrc}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${fallback}';"></td>
+      <td>${m.name}</td>
+      <td class="mono">${mobileByName(m.name)}</td>
+      <td class="mono">${moneyInt(rowTotal(m))}</td>
+      <td class="mono" style="color:var(--gold); font-weight:600;">${moneyInt(m.totalBalance)}</td>
+      <td>${loanCell}</td>
+    </tr>`;
+  }).join('');
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <h2>সদস্য তালিকা (${DATA.contributions.length} জন)</h2>
+        <div class="hint">প্রতিটি সদস্যের ছবি, মোবাইল নম্বর, ${DATA.year}-এর জমা, মোট ব্যালেন্স ও ঋণের অবস্থা।</div>
+      </div>
+      <div class="search-row"><input type="text" id="memberSearch" placeholder="নাম লিখে খুঁজুন..."></div>
+      <div class="table-scroll"><table id="membersTable">
+        <thead><tr><th>ছবি</th><th>নাম</th><th>মোবাইল</th><th>${DATA.year} জমা</th><th>মোট ব্যালেন্স</th><th>ঋণ</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+  const inp = document.getElementById('memberSearch');
+  inp.addEventListener('input', ()=>{
+    const q = inp.value.trim().toLowerCase();
+    document.querySelectorAll('#membersTable tbody tr').forEach(r=>{ r.style.display = r.dataset.name.includes(q) ? '' : 'none'; });
+  });
+}
+
+function renderContrib(){
+  const editing = isEditing();
+  const rows = DATA.contributions.map((m)=>{
+    const cells = m.pay.map((p,pi)=>{
+      const paid = p>0;
+      return `<td><span class="cell-pill ${paid?'paid':'unpaid'} ${editing?'editable':''}" data-row="${m.row}" data-col="${m.monthStartCol1+pi}" data-cur="${p}">${paid?('₹'+p):'বাকি'}</span></td>`;
+    }).join('');
+    return `<tr><td>${m.name}</td>${cells}<td class="mono" style="font-weight:700;">${moneyInt(rowTotal(m))}</td></tr>`;
+  }).join('');
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <h2>মাসিক জমার হিসাব — ${DATA.year}</h2>
+        <div class="hint">${editing ? 'ঘরে ক্লিক করে ১০০ ও বাকির মধ্যে টগল করুন — সরাসরি Google Sheet-এ সংরক্ষিত হবে।' : 'দেখতে এডিট মোড চালু করার দরকার নেই; পরিবর্তন করতে সাইডবারের 🔒 বাটনে ক্লিক করুন।'}</div>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>সদস্য</th>${DATA.months.map(mo=>`<th>${mo}</th>`).join('')}<th>মোট</th></tr></thead>
+        <tbody id="contribBody">${rows}</tbody>
+      </table></div>
+    </div>`;
+  document.getElementById('contribBody').addEventListener('click', async e=>{
+    const pill = e.target.closest('.cell-pill.editable');
+    if(!pill) return;
+    const cur = parseFloat(pill.dataset.cur)||0;
+    const next = cur>0 ? 0 : 100;
+    pill.textContent = next>0 ? ('₹'+next) : 'বাকি';
+    pill.classList.toggle('paid', next>0);
+    pill.classList.toggle('unpaid', next===0);
+    pill.dataset.cur = next;
+    await sendEdit('toggleContribution', {row:+pill.dataset.row, col:+pill.dataset.col, value: next});
+  });
+}
+
+async function markClosed(row){
+  if(!confirm('এই ঋণটি সম্পূর্ণ বন্ধ (Closed) হিসেবে চিহ্নিত করতে চান?')) return;
+  await sendEdit('markLoanClosed', {row, startCol:6});
+}
+const MONTH_ORDINALS = ['১ম','২য়','৩য়','৪র্থ','৫ম','৬ষ্ঠ','৭ম','৮ম','৯ম','১০ম','১১শ','১২শ'];
+function renderLoans(){
+  const editing = isEditing();
+  const rows = DATA.activeLoans.map(l=>{
+    const st = loanStatus(l);
+    const cells = [];
+    for(let i=0;i<12;i++){
+      const m = l.months[i];
+      if(!m){ cells.push('<td class="mono" style="color:var(--ink-soft); text-align:center;">—</td>'); continue; }
+      const paid = m.amount!==null;
+      cells.push(`<td><span class="loan-cell ${paid?'paid':'unpaid'} ${editing?'editable':''}" data-row="${l.row}" data-col="${m.col}" data-cur="${paid?m.amount:''}">
+        <span class="ld">${m.due}</span><span class="la">${paid?('₹'+m.amount):'বাকি'}</span>
+      </span></td>`);
+    }
+    return `<tr data-name="${l.name.toLowerCase()}">
+      <td>${l.name}${st.overdue?' <span class="overdue-tag">বকেয়া</span>':''}</td>
+      <td class="mono">${moneyInt(l.amount)}</td>
+      <td>${l.date}</td>
+      <td class="mono">${moneyInt(l.monthlyInterest)}</td>
+      ${cells.join('')}
+      <td class="mono" style="font-weight:700;">${moneyInt(l.totalInterestAmount)}</td>
+      ${editing ? `<td><button class="loan-close-btn" onclick="markClosed(${l.row})">বন্ধ করুন</button></td>` : ''}
+    </tr>`;
+  }).join('');
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <h2>চলতি ঋণ — ${DATA.year}</h2>
+        <div class="hint">মোট চলতি ঋণ ${moneyInt(DATA.activeLoans.reduce((s,l)=>s+l.amount,0))}। ${editing?'মাসের ঘরে ক্লিক করে সুদের পরিমাণ লিখুন — সরাসরি Google Sheet-এ সংরক্ষিত হবে।':'বকেয়া মানে সুদ পরিশোধের তারিখ পার হয়ে গেছে।'}</div>
+      </div>
+      <div class="search-row"><input type="text" id="loanSearch" placeholder="সদস্যের নাম লিখে খুঁজুন..."></div>
+      <div class="table-scroll"><table>
+        <thead><tr>
+          <th>সদস্য</th><th>পরিমাণ</th><th>নেওয়ার তারিখ</th><th>মাসিক সুদ</th>
+          ${MONTH_ORDINALS.map(m=>`<th>${m} মাস</th>`).join('')}
+          <th>মোট সুদ</th>${editing?'<th></th>':''}
+        </tr></thead>
+        <tbody id="loanBody">${rows || '<tr><td colspan="18">কোনো চলতি ঋণ নেই।</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+  const inp = document.getElementById('loanSearch');
+  inp.addEventListener('input', ()=>{
+    const q = inp.value.trim().toLowerCase();
+    document.querySelectorAll('#loanBody tr').forEach(r=>{ if(r.dataset.name) r.style.display = r.dataset.name.includes(q) ? '' : 'none'; });
+  });
+  document.getElementById('loanBody').addEventListener('click', async e=>{
+    const cell = e.target.closest('.loan-cell.editable');
+    if(!cell) return;
+    const cur = cell.dataset.cur;
+    const amt = prompt('এই মাসে সুদ কত জমা পড়েছে? (ফাঁকা রাখলে মুছে যাবে)', cur || '');
+    if(amt===null) return;
+    const trimmed = amt.trim();
+    if(trimmed!=='' && isNaN(parseFloat(trimmed))) return;
+    await sendEdit('setLoanMonthPayment', {row:+cell.dataset.row, col:+cell.dataset.col, amount: trimmed===''?'':parseFloat(trimmed)});
+  });
+}
+
+function renderFine(){
+  const fs = DATA.fundSummary || {};
+  const fineThisYear = fs.earningsFine || 0;
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <h2>🚫 ফাইনের নিয়ম</h2>
+        <div class="hint">নিয়মিত জমা না দিলে যে ফাইন প্রযোজ্য হয় — মাসিক জমা ও ঋণের সুদ, দুটোতেই একই নিয়ম</div>
+      </div>
+      <p style="line-height:1.9; margin:0;">প্রতি মাসের ১৫ তারিখের মধ্যে টাকা জমা দিতে হবে। পরপর ২ মাস টাকা না দিলে — অর্থাৎ <strong>দ্বিতীয় বাকি মাসেরও ১৫ তারিখ পার হয়ে গেলে</strong> — তখন বাকি থাকা মাসগুলোর টাকার সাথে <strong>এক মাসের টাকা অতিরিক্ত ফাইন হিসেবে</strong> দিয়ে জমা করতে হবে।</p>
+      <p class="hint-text" style="margin-top:.9rem;">উদাহরণ: ৩ মাস বাকি থাকলে — ১০০ × ৩ = ৩০০ + ১০০ (ফাইন) = <strong>মোট ৪০০ টাকা</strong> জমা দিতে হবে। ঠিক ১ মাস বাকি থাকলে, বা ২ মাস বাকি থাকলেও এখনো দ্বিতীয় মাসের ১৫ তারিখ পার না হলে — কোনো ফাইন লাগবে না, শুধু স্বাভাবিক জমা দিলেই হবে।</p>
+      <div class="pay-actions" style="margin-top:1.1rem;">
+        <button class="pay-btn claim" onclick="payType='fine'; document.querySelector('[data-page=payment]').click();">💰 এখনই ফাইন জমা দিন</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>${DATA.year}-এ এ পর্যন্ত মোট ফাইন আদায়</h2>
+      </div>
+      <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+        <div class="stat"><div class="k">এই বছরের ফাইন</div><div class="v gold mono">${moneyInt(fineThisYear)}</div></div>
+      </div>
+      <p class="hint-text" style="margin-top:1rem; border-top:1px solid var(--line); padding-top:.9rem;">কে কবে ফাইন দিয়েছেন তার বিস্তারিত তালিকা মূল Google Sheet-এর প্রতিটি বছরের ট্যাবে (২০২১–${DATA.year}) হাতে-লেখা রাখা আছে — সেখানে গিয়ে দেখে নেওয়া যাবে।</p>
+    </div>`;
+}
+
+function renderRules(){
+  const editing = isEditing();
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head"><h2>নিয়মাবলী</h2></div>
+      <ul class="rules-list" id="rulesList">${DATA.rules.map((r,i)=>`
+        <li data-i="${i}">
+          <span class="rtext">${r.text}</span>
+          ${editing && r.row ? `<button class="rule-edit-btn" onclick="editRule(${i})">✏️ সম্পাদনা</button>` : ''}
+          <div class="rule-editor" id="ruleEditor-${i}" hidden>
+            <textarea id="ruleInput-${i}">${r.text}</textarea>
+            <button onclick="saveRule(${i}, ${r.row}, ${r.col})">সংরক্ষণ</button>
+          </div>
+        </li>`).join('')}</ul>
+    </div>`;
+}
+function editRule(i){
+  const box = document.getElementById('ruleEditor-'+i);
+  box.hidden = !box.hidden;
+}
+async function saveRule(i, row, col){
+  const text = document.getElementById('ruleInput-'+i).value.trim();
+  if(!text) return;
+  await sendEdit('updateRule', {row, col, text});
+}
+
+function daysUntil(md){
+  if(!md) return 999;
+  const today=new Date();
+  const [mm,dd]=md.split('-').map(Number);
+  let next=new Date(today.getFullYear(),mm-1,dd);
+  const t0=new Date(today.getFullYear(),today.getMonth(),today.getDate());
+  if(next<t0) next=new Date(today.getFullYear()+1,mm-1,dd);
+  return Math.ceil((next-t0)/86400000);
+}
+function renderBirthdays(){
+  const editing = isEditing();
+  const bdays=[...DATA.birthdays].map(b=>({...b,days:daysUntil(b.md)})).sort((a,b)=>a.days-b.days);
+  const monthNames=["জানু","ফেব্রু","মার্চ","এপ্রি","মে","জুন","জুলা","আগ","সেপ্টে","অক্টো","নভে","ডিসে"];
+  const rows = bdays.map((b,i)=>{
+    if(!b.md) return '';
+    const [mm,dd]=b.md.split('-');
+    return `<div class="bday-row ${i===0?'next':''}">
+      <div class="datebox">${dd}<br>${monthNames[parseInt(mm)-1]}</div>
+      <div>
+        <div class="name">${b.name}</div>
+        <div class="contact" id="bday-contact-${b.row}">${b.mobile}${b.email?' · '+b.email:''}${b.remarks?' · '+b.remarks:''}</div>
+        ${editing ? `<button class="bday-edit-btn" onclick="editBirthday(${b.row}, '${b.mobile.replace(/'/g,"")}', '${(b.email||'').replace(/'/g,"")}', '${(b.remarks||'').replace(/'/g,"")}')">✏️ সম্পাদনা</button>` : ''}
+      </div>
+      <div class="days">${b.days===0?'আজ!':b.days+' দিন বাকি'}</div>
+    </div>`;
+  }).join('');
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head"><h2>জন্মদিনের তালিকা</h2><div class="hint">সবচেয়ে কাছের জন্মদিন উপরে।</div></div>
+      <div class="bday-list">${rows}</div>
+    </div>`;
+}
+async function editBirthday(row, curMobile, curEmail, curRemarks){
+  const mobile = prompt('মোবাইল নম্বর:', curMobile);
+  if(mobile===null) return;
+  const email = prompt('ইমেইল:', curEmail);
+  if(email===null) return;
+  const remarks = prompt('মন্তব্য (Sent/Done):', curRemarks);
+  if(remarks===null) return;
+  await sendEdit('updateBirthdayField', {row, col:5, value:mobile});
+  await sendEdit('updateBirthdayField', {row, col:6, value:email});
+  await sendEdit('updateBirthdayField', {row, col:7, value:remarks});
+}
+
+function renderHistory(){
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head"><h2>বছরভিত্তিক ইতিহাস</h2></div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>বছর</th><th>সেই বছরের চাঁদা</th><th>ক্রমসঞ্চিত চাঁদা</th><th>হাতে থাকা ব্যালেন্স</th><th>মোট ব্যালেন্স</th></tr></thead>
+        <tbody>${DATA.yearlySummary.map(y=>`
+          <tr>
+            <td style="font-weight:600;">${y.year}${y.note?` <span class="pill-badge" style="margin-left:.4rem;">${y.note}</span>`:''}</td>
+            <td class="mono">${moneyInt(y.annualCollection)}</td>
+            <td class="mono">${moneyInt(y.cumulativeCollection)}</td>
+            <td class="mono">${money(y.availableBalance)}</td>
+            <td class="mono">${y.totalBalance?money(y.totalBalance):'—'}</td>
+          </tr>`).join('')}</tbody>
+      </table></div>
+    </div>
+    <div class="foot-help">
+      <h3>এই ড্যাশবোর্ড কীভাবে কাজ করে</h3>
+      <p>এই পেজের সব তথ্য সরাসরি আপনার Google Sheet থেকে লাইভ আসে (প্রতি ${AUTO_REFRESH_SEC} সেকেন্ডে auto-refresh হয়)। "মাসিক জমা", "ঋণ হিসাব", "নিয়মাবলী" ও "জন্মদিন" পেজে এডিট মোড চালু করে (শুধু Prasun Jyoti-র PIN দিয়ে) সরাসরি Sheet-এ পরিবর্তন লেখা যায়।</p>
+    </div>`;
+}
+
+const renderers = {overview:renderOverview, members:renderMembers, contrib:renderContrib, loans:renderLoans, payment:renderPayment, loanrequest:renderLoanRequest, fine:renderFine, rules:renderRules, birthdays:renderBirthdays, history:renderHistory};
+function renderPage(id){
+  if(!DATA) return;
+  pageTitle.textContent = (bnNum[pages.findIndex(p=>p.id===id)]) + " " + pageTitles[id];
+  renderers[id]();
+  updateEditBtn();
+}
+
+document.getElementById('refreshBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('refreshBtn');
+  if(btn.classList.contains('spinning')) return;
+  btn.classList.add('spinning');
+  await loadData(false);
+  btn.classList.remove('spinning');
+});
+
+// The logo and the whole welcome layout are inline, so show them straight away
+// instead of making everyone stare at a spinner. The live numbers on the
+// welcome card fill themselves in a moment later, when loadData() returns.
+document.getElementById('loadingScreen').classList.add('hidden');
+showWelcome();
+loadData(false);
+setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
+</script>
+
+</body>
+</html>
