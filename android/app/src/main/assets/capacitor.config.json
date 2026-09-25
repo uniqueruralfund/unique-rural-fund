@@ -1,0 +1,10 @@
+{
+	"appId": "com.uniqueruralfund.app",
+	"appName": "Unique Rural Fund",
+	"webDir": "www",
+	"server": {
+		"url": "https://uniqueruralfund.github.io",
+		"androidScheme": "https",
+		"cleartext": false
+	}
+}
